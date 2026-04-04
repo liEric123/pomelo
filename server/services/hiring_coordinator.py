@@ -10,15 +10,18 @@ are caught internally and re-raised as one of these domain types.
 """
 
 import json
+from datetime import datetime, time, timezone
 
 import anthropic
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from models import Candidate
+from models import Candidate, Match, MatchStatus, Role, Swipe, SwipeDirection
 from utils.resume_parser import extract_text
 from services.scoring_service import grade_resume
 from services.resume_service import generate_skill_vector, zero_skill_vector
+from services.matching_service import build_role_vector, cosine_similarity
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +42,25 @@ class ResumeExtractionError(Exception):
 
 class AIServiceError(Exception):
     """Claude API call failed or returned unparseable output."""
+
+
+class NotFoundError(Exception):
+    """Requested entity does not exist."""
+
+
+class InvalidSwipeError(Exception):
+    """Swipe direction or side value is invalid."""
+
+
+class DuplicateSwipeError(Exception):
+    """This side has already swiped on this role/candidate pair."""
+
+
+class SwipeLimitError(Exception):
+    """Daily swipe limit reached."""
+
+
+CANDIDATE_DAILY_LIMIT = 5
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +159,276 @@ def register_candidate(
         "top_skills": top_skills,
     }
 
+
+# ---------------------------------------------------------------------------
+# Swipe recording
+# ---------------------------------------------------------------------------
+
+def record_swipe(
+    candidate_id: int,
+    role_id: int,
+    direction: str,
+    side: str,
+    session: Session,
+) -> dict:
+    """Record a candidate or recruiter swipe on a role.
+
+    side: "candidate" or "recruiter"
+    direction: "like" or "pass"
+
+    Returns:
+      {"matched": True, "match_id": <id>}  if mutual like creates a match
+      {"matched": False}                    otherwise
+
+    Raises:
+      NotFoundError      — candidate or role not found
+      InvalidSwipeError  — bad direction or side value
+      DuplicateSwipeError — this side already swiped this pair
+      SwipeLimitError    — daily limit reached
+    """
+    if side not in ("candidate", "recruiter"):
+        raise InvalidSwipeError(f"Invalid side: '{side}'. Must be 'candidate' or 'recruiter'.")
+
+    try:
+        dir_enum = SwipeDirection(direction)
+    except ValueError:
+        raise InvalidSwipeError(f"Invalid direction: '{direction}'. Must be 'like' or 'pass'.")
+
+    candidate = session.get(Candidate, candidate_id)
+    if not candidate:
+        raise NotFoundError(f"Candidate {candidate_id} not found.")
+    role = session.get(Role, role_id)
+    if not role:
+        raise NotFoundError(f"Role {role_id} not found.")
+
+    # find existing swipe row for this pair
+    swipe = session.exec(
+        select(Swipe).where(Swipe.candidate_id == candidate_id, Swipe.role_id == role_id)
+    ).first()
+
+    now = _utcnow()
+
+    if side == "candidate":
+        if _count_candidate_swipes_today(candidate_id, session) >= CANDIDATE_DAILY_LIMIT:
+            raise SwipeLimitError(f"Candidate daily limit of {CANDIDATE_DAILY_LIMIT} swipes reached.")
+        swipe = _save_swipe_side(
+            swipe=swipe,
+            candidate_id=candidate_id,
+            role_id=role_id,
+            side=side,
+            direction=dir_enum,
+            swiped_at=now,
+            session=session,
+        )
+        if dir_enum == SwipeDirection.like and swipe.recruiter_direction == SwipeDirection.like:
+            match = _create_or_get_match(swipe, session)
+            return {"matched": True, "match_id": match.id}
+
+    else:  # recruiter
+        if _count_recruiter_swipes_today(role_id, session) >= role.max_swipes_per_day:
+            raise SwipeLimitError(
+                f"Recruiter daily limit of {role.max_swipes_per_day} swipes reached for this role."
+            )
+        swipe = _save_swipe_side(
+            swipe=swipe,
+            candidate_id=candidate_id,
+            role_id=role_id,
+            side=side,
+            direction=dir_enum,
+            swiped_at=now,
+            session=session,
+        )
+        if dir_enum == SwipeDirection.like and swipe.candidate_direction == SwipeDirection.like:
+            match = _create_or_get_match(swipe, session)
+            return {"matched": True, "match_id": match.id}
+
+    return {"matched": False}
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _today_start() -> datetime:
+    """Midnight UTC today as a timezone-aware datetime."""
+    return datetime.combine(datetime.now(timezone.utc).date(), time.min, tzinfo=timezone.utc)
+
+
+def _count_candidate_swipes_today(candidate_id: int, session: Session) -> int:
+    return session.exec(
+        select(func.count(Swipe.id)).where(
+            Swipe.candidate_id == candidate_id,
+            Swipe.candidate_swiped_at >= _today_start(),
+        )
+    ).one()
+
+
+def _count_recruiter_swipes_today(role_id: int, session: Session) -> int:
+    return session.exec(
+        select(func.count(Swipe.id)).where(
+            Swipe.role_id == role_id,
+            Swipe.recruiter_swiped_at >= _today_start(),
+        )
+    ).one()
+
+
+def _save_swipe_side(
+    swipe: Swipe | None,
+    candidate_id: int,
+    role_id: int,
+    side: str,
+    direction: SwipeDirection,
+    swiped_at: datetime,
+    session: Session,
+) -> Swipe:
+    """Persist one side of a swipe, recovering from concurrent first-insert races."""
+    direction_field = f"{side}_direction"
+    timestamp_field = f"{side}_swiped_at"
+    duplicate_message = (
+        "Candidate already swiped on this role."
+        if side == "candidate"
+        else "Recruiter already swiped this candidate for this role."
+    )
+
+    if swipe and getattr(swipe, direction_field) is not None:
+        raise DuplicateSwipeError(duplicate_message)
+
+    if swipe is None:
+        swipe = Swipe(candidate_id=candidate_id, role_id=role_id)
+        session.add(swipe)
+
+    setattr(swipe, direction_field, direction)
+    setattr(swipe, timestamp_field, swiped_at)
+
+    try:
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        swipe = session.exec(
+            select(Swipe).where(Swipe.candidate_id == candidate_id, Swipe.role_id == role_id)
+        ).first()
+        if swipe is None:
+            raise
+        if getattr(swipe, direction_field) is not None:
+            raise DuplicateSwipeError(duplicate_message) from e
+        setattr(swipe, direction_field, direction)
+        setattr(swipe, timestamp_field, swiped_at)
+        try:
+            session.commit()
+        except IntegrityError as retry_error:
+            session.rollback()
+            swipe = session.exec(
+                select(Swipe).where(Swipe.candidate_id == candidate_id, Swipe.role_id == role_id)
+            ).first()
+            if swipe is None:
+                raise
+            if getattr(swipe, direction_field) is not None:
+                raise DuplicateSwipeError(duplicate_message) from retry_error
+            raise
+
+    session.refresh(swipe)
+    return swipe
+
+
+def _create_or_get_match(swipe: Swipe, session: Session) -> Match:
+    """Create a Match row from a mutual-like swipe, or return the existing one."""
+    existing = session.exec(
+        select(Match).where(
+            Match.candidate_id == swipe.candidate_id,
+            Match.role_id == swipe.role_id,
+        )
+    ).first()
+    if existing:
+        return existing
+
+    match = Match(
+        candidate_id=swipe.candidate_id,
+        role_id=swipe.role_id,
+        swipe_id=swipe.id,
+        status=MatchStatus.pending,
+    )
+    session.add(match)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        existing = session.exec(
+            select(Match).where(
+                Match.candidate_id == swipe.candidate_id,
+                Match.role_id == swipe.role_id,
+            )
+        ).first()
+        if existing:
+            return existing
+        raise
+    session.refresh(match)
+    return match
+
+
+# ---------------------------------------------------------------------------
+# Candidate feed
+# ---------------------------------------------------------------------------
+
+def get_candidate_feed(candidate_id: int, session: Session) -> list[dict]:
+    """Return up to 20 roles ranked by cosine similarity for a candidate.
+
+    Filtering:
+      - role must be active
+      - candidate resume_score must fall within role.min_score / role.max_score
+      - roles the candidate already swiped are excluded
+
+    Ranking:
+      - cosine similarity between candidate.embedding and role keyword vector
+      - both vectors use the shared SKILL_VOCABULARY (see resume_service / matching_service)
+
+    Raises:
+      NotFoundError — candidate not found
+    """
+    candidate = session.get(Candidate, candidate_id)
+    if not candidate:
+        raise NotFoundError(f"Candidate {candidate_id} not found.")
+
+    # roles already swiped by this candidate
+    swiped_ids: set[int] = set(
+        session.exec(
+            select(Swipe.role_id).where(
+                Swipe.candidate_id == candidate_id,
+                Swipe.candidate_direction.is_not(None),
+            )
+        ).all()
+    )
+
+    roles = session.exec(select(Role).where(Role.is_active == True)).all()  # noqa: E712
+
+    resume_score = candidate.resume_score or 0.0
+    candidate_vec = candidate.embedding or zero_skill_vector()
+
+    scored: list[dict] = []
+    for role in roles:
+        if role.id in swiped_ids:
+            continue
+        if not (role.min_score <= resume_score <= role.max_score):
+            continue
+        role_vec = build_role_vector(role.keywords)
+        sim = cosine_similarity(candidate_vec, role_vec)
+        scored.append({
+            "role_id": role.id,
+            "title": role.title,
+            "company_id": role.company_id,
+            "description": role.description,
+            "location": role.location,
+            "is_remote": role.is_remote,
+            "keywords": role.keywords,
+            "match_percent": round(sim * 100, 1),
+        })
+
+    scored.sort(key=lambda x: x["match_percent"], reverse=True)
+    return scored[:20]
+
+
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
 
 def _normalize_grade(grade: dict) -> tuple[int, str, list[str]]:
     """Validate and normalize grading output into strongly-typed fields."""

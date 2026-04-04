@@ -84,6 +84,9 @@ class Role(SQLModel, table=True):
     # Ordered list of interview question strings for this role
     questions: list[str] = Field(default_factory=list, sa_column=Column(sa.JSON))
 
+    # Max recruiter swipes per day for this role (enforced in coordinator)
+    max_swipes_per_day: int = 20
+
     is_active: bool = True
     created_at: datetime = Field(
         default_factory=utcnow,
@@ -126,6 +129,10 @@ class Candidate(SQLModel, table=True):
 class Swipe(SQLModel, table=True):
     """Records a candidate's like/pass on a role, and a company's like/pass on a candidate."""
 
+    __table_args__ = (
+        sa.UniqueConstraint("candidate_id", "role_id", name="uq_swipe_candidate_role"),
+    )
+
     id: Optional[int] = Field(default=None, primary_key=True)
     candidate_id: int = Field(foreign_key="candidate.id")
     role_id: int = Field(foreign_key="role.id")
@@ -156,6 +163,11 @@ class Swipe(SQLModel, table=True):
 
 class Match(SQLModel, table=True):
     """Created when both candidate and recruiter swipe 'like' on each other."""
+
+    __table_args__ = (
+        sa.UniqueConstraint("candidate_id", "role_id", name="uq_match_candidate_role"),
+        sa.UniqueConstraint("swipe_id", name="uq_match_swipe_id"),
+    )
 
     id: Optional[int] = Field(default=None, primary_key=True)
     candidate_id: int = Field(foreign_key="candidate.id")
