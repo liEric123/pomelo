@@ -1,7 +1,37 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
+from database import create_db_and_tables
+from routes.candidate import router as candidate_router
+from routes.swipe import router as swipe_router
+from routes.recruiter import router as recruiter_router
+from routes.interview import router as interview_router
 
-@app.get("/")
-def root():
-    return {"status": "Pomelo backend running"}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    create_db_and_tables()
+    yield
+
+
+app = FastAPI(title="Pomelo API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(candidate_router, prefix="/api")
+app.include_router(swipe_router, prefix="/api")
+app.include_router(recruiter_router, prefix="/api")
+app.include_router(interview_router, prefix="/api")
+
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok"}
