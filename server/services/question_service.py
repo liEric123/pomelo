@@ -8,10 +8,9 @@ Prompts used:
   - simul_generate_questions.md → generate_simul_questions()
 """
 
-import json
 import random
 from ai import client, MODEL
-from services.prompt_loader import render_prompt
+from services.prompt_loader import parse_json_response, render_prompt
 
 
 def pick_prelim_questions(role_questions: list[str], n: int = 4) -> list[str]:
@@ -48,5 +47,5 @@ def generate_simul_questions(
         max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
-    result = json.loads(response.content[0].text)
+    result = parse_json_response(response.content[0].text)
     return result["questions"]

@@ -7,9 +7,8 @@ Prompts used:
   - pre_ai_interview.md → pre_ai_interview_score()
 """
 
-import json
 from ai import client, MODEL
-from services.prompt_loader import render_prompt
+from services.prompt_loader import parse_json_response, render_prompt
 
 
 def grade_resume(
@@ -39,7 +38,7 @@ def grade_resume(
         max_tokens=512,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(response.content[0].text)
+    return parse_json_response(response.content[0].text)
 
 
 def keyword_match(
@@ -65,7 +64,7 @@ def keyword_match(
         max_tokens=256,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(response.content[0].text)
+    return parse_json_response(response.content[0].text)
 
 
 def pre_ai_interview_score(
@@ -100,4 +99,4 @@ def pre_ai_interview_score(
         max_tokens=256,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(response.content[0].text)
+    return parse_json_response(response.content[0].text)

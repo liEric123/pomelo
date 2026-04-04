@@ -8,9 +8,8 @@ The interview_data and time_stats blocks are built by the helper functions
 below, matching the structure expected by final_summary.md.
 """
 
-import json
 from ai import client, MODEL
-from services.prompt_loader import render_prompt
+from services.prompt_loader import parse_json_response, render_prompt
 
 
 def build_interview_data(questions_and_answers: list[dict]) -> str:
@@ -93,4 +92,4 @@ def generate_summary(
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(response.content[0].text)
+    return parse_json_response(response.content[0].text)

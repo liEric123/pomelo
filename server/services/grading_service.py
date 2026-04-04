@@ -7,9 +7,8 @@ Prompts used:
   - simul_evaluate_answer.md → grade_answer()
 """
 
-import json
 from ai import client, MODEL
-from services.prompt_loader import render_prompt
+from services.prompt_loader import parse_json_response, render_prompt
 
 
 def grade_answer(
@@ -46,4 +45,4 @@ def grade_answer(
         max_tokens=512,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(response.content[0].text)
+    return parse_json_response(response.content[0].text)

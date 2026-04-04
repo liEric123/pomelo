@@ -9,9 +9,8 @@ Prompts used:
   - simul_followup.md → generate_followup()
 """
 
-import json
 from ai import client, MODEL
-from services.prompt_loader import render_prompt
+from services.prompt_loader import parse_json_response, render_prompt
 
 
 def generate_followup(
@@ -42,5 +41,5 @@ def generate_followup(
         max_tokens=256,
         messages=[{"role": "user", "content": prompt}],
     )
-    result = json.loads(response.content[0].text)
+    result = parse_json_response(response.content[0].text)
     return result["follow_up"]
