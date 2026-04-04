@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 type JsonBody = Record<string, unknown> | unknown[]
 
@@ -37,7 +37,20 @@ export async function apiFetch<T>(
   })
 
   if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`)
+    const contentType = response.headers.get('Content-Type') ?? ''
+    let errorDetail = ''
+
+    if (contentType.includes('application/json')) {
+      const payload = (await response.json()) as { detail?: string }
+      errorDetail = payload.detail ?? ''
+    } else {
+      errorDetail = await response.text()
+    }
+
+    const detailSuffix = errorDetail ? `: ${errorDetail}` : ''
+    throw new Error(
+      `API request failed with status ${response.status}${detailSuffix}`,
+    )
   }
 
   if (response.status === 204) {
