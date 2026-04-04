@@ -1,0 +1,148 @@
+{
+  "questions": [
+    {
+      "id": "behavioral_01",
+      "category": "ownership",
+      "question": "Tell me about a time you took ownership of a project, problem, or process that was not clearly assigned to you.",
+      "rubric_dimensions": ["relevance_and_specificity", "ownership", "impact_and_results", "reflection_and_learning"]
+    },
+    {
+      "id": "behavioral_02",
+      "category": "execution",
+      "question": "Describe a time you had to deliver a meaningful result under a tight deadline. How did you prioritize and what was the outcome?",
+      "rubric_dimensions": ["structure_and_clarity", "judgment_and_problem_solving", "ownership", "impact_and_results"]
+    },
+    {
+      "id": "behavioral_03",
+      "category": "ambiguity",
+      "question": "Tell me about a time you had to move forward with incomplete information or unclear requirements.",
+      "rubric_dimensions": ["judgment_and_problem_solving", "ownership", "structure_and_clarity", "reflection_and_learning"]
+    },
+    {
+      "id": "behavioral_04",
+      "category": "collaboration",
+      "question": "Tell me about a time you worked with a cross-functional team to achieve a goal. What challenges came up and how did you handle them?",
+      "rubric_dimensions": ["collaboration_and_communication", "ownership", "impact_and_results", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_05",
+      "category": "conflict",
+      "question": "Describe a time you disagreed with a teammate, manager, or stakeholder. What was the disagreement and how did you resolve it?",
+      "rubric_dimensions": ["collaboration_and_communication", "judgment_and_problem_solving", "ownership", "reflection_and_learning"]
+    },
+    {
+      "id": "behavioral_06",
+      "category": "feedback",
+      "question": "Tell me about a time you received difficult or critical feedback. What did you do with it?",
+      "rubric_dimensions": ["reflection_and_learning", "ownership", "structure_and_clarity", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_07",
+      "category": "failure",
+      "question": "Tell me about a time you made a mistake or missed the mark. How did you respond, and what did you learn?",
+      "rubric_dimensions": ["ownership", "reflection_and_learning", "judgment_and_problem_solving", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_08",
+      "category": "problem_solving",
+      "question": "Describe a time you identified the root cause of a difficult problem and took action to solve it.",
+      "rubric_dimensions": ["judgment_and_problem_solving", "ownership", "impact_and_results", "structure_and_clarity"]
+    },
+    {
+      "id": "behavioral_09",
+      "category": "adaptability",
+      "question": "Tell me about a time priorities changed suddenly. How did you adapt without losing momentum?",
+      "rubric_dimensions": ["judgment_and_problem_solving", "ownership", "impact_and_results", "reflection_and_learning"]
+    },
+    {
+      "id": "behavioral_10",
+      "category": "learning",
+      "question": "Describe a time you had to learn a new tool, system, or domain very quickly in order to be effective.",
+      "rubric_dimensions": ["reflection_and_learning", "ownership", "impact_and_results", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_11",
+      "category": "influence",
+      "question": "Tell me about a time you had to influence a decision without formal authority.",
+      "rubric_dimensions": ["collaboration_and_communication", "judgment_and_problem_solving", "impact_and_results", "ownership"]
+    },
+    {
+      "id": "behavioral_12",
+      "category": "communication",
+      "question": "Describe a time you had to explain a complex issue to someone with a different background or level of expertise.",
+      "rubric_dimensions": ["collaboration_and_communication", "structure_and_clarity", "impact_and_results", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_13",
+      "category": "prioritization",
+      "question": "Tell me about a time you had multiple high-priority tasks competing for your attention. How did you decide what to do first?",
+      "rubric_dimensions": ["judgment_and_problem_solving", "ownership", "structure_and_clarity", "impact_and_results"]
+    },
+    {
+      "id": "behavioral_14",
+      "category": "customer_focus",
+      "question": "Describe a time you improved something because you understood a user, customer, or stakeholder need more deeply.",
+      "rubric_dimensions": ["judgment_and_problem_solving", "impact_and_results", "ownership", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_15",
+      "category": "process_improvement",
+      "question": "Tell me about a time you improved a workflow, process, or team practice. What prompted the change and what happened afterward?",
+      "rubric_dimensions": ["ownership", "judgment_and_problem_solving", "impact_and_results", "reflection_and_learning"]
+    },
+    {
+      "id": "behavioral_16",
+      "category": "resilience",
+      "question": "Describe a time you faced a setback that affected your work. How did you recover and regain progress?",
+      "rubric_dimensions": ["ownership", "reflection_and_learning", "judgment_and_problem_solving", "impact_and_results"]
+    },
+    {
+      "id": "behavioral_17",
+      "category": "collaboration",
+      "question": "Tell me about a time you helped unblock or support a teammate while still meeting your own responsibilities.",
+      "rubric_dimensions": ["collaboration_and_communication", "ownership", "impact_and_results", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_18",
+      "category": "judgment",
+      "question": "Describe a time you had to make an important tradeoff between speed, quality, scope, or risk.",
+      "rubric_dimensions": ["judgment_and_problem_solving", "ownership", "impact_and_results", "structure_and_clarity"]
+    },
+    {
+      "id": "behavioral_19",
+      "category": "initiative",
+      "question": "Tell me about a time you saw a problem others were overlooking and took initiative to address it.",
+      "rubric_dimensions": ["ownership", "judgment_and_problem_solving", "impact_and_results", "relevance_and_specificity"]
+    },
+    {
+      "id": "behavioral_20",
+      "category": "inclusion",
+      "question": "Describe a time you made sure different perspectives were heard before a decision was made.",
+      "rubric_dimensions": ["collaboration_and_communication", "judgment_and_problem_solving", "ownership", "reflection_and_learning"]
+    },
+    {
+      "id": "behavioral_21",
+      "category": "leadership",
+      "question": "Tell me about a time you led through ambiguity, even if you were not the formal leader.",
+      "rubric_dimensions": ["ownership", "judgment_and_problem_solving", "collaboration_and_communication", "impact_and_results"]
+    },
+    {
+      "id": "behavioral_22",
+      "category": "accountability",
+      "question": "Describe a time you had to take responsibility for an outcome that was not going well.",
+      "rubric_dimensions": ["ownership", "reflection_and_learning", "judgment_and_problem_solving", "impact_and_results"]
+    },
+    {
+      "id": "behavioral_23",
+      "category": "decision_making",
+      "question": "Tell me about a time data, stakeholder input, and your own judgment pointed in different directions. How did you decide what to do?",
+      "rubric_dimensions": ["judgment_and_problem_solving", "structure_and_clarity", "ownership", "impact_and_results"]
+    },
+    {
+      "id": "behavioral_24",
+      "category": "professional_growth",
+      "question": "Describe a time you changed how you work because of something you learned from a previous project or failure.",
+      "rubric_dimensions": ["reflection_and_learning", "ownership", "relevance_and_specificity", "impact_and_results"]
+    }
+  ]
+}
