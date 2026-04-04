@@ -4,12 +4,10 @@ from sqlmodel import Session
 from database import get_session
 from services.hiring_coordinator import (
     register_candidate as _register_candidate,
-    get_candidate_feed as _get_candidate_feed,
     DuplicateEmailError,
     UnsupportedFileError,
     ResumeExtractionError,
     AIServiceError,
-    NotFoundError,
 )
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
@@ -44,15 +42,8 @@ def get_candidate_feed(
     candidate_id: int,
     session: Session = Depends(get_session),
 ):
-    """Return up to 20 roles ranked by skill match for the candidate's swipe feed.
-
-    Each item includes match_percent (0-100) derived from cosine similarity.
-    Excludes roles already swiped and roles outside the candidate's score range.
-    """
-    try:
-        return _get_candidate_feed(candidate_id, session)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    """Return a ranked list of roles for the candidate's swipe feed."""
+    pass
 
 
 @router.get("/{candidate_id}/matches")
