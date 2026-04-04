@@ -19,6 +19,7 @@ export default {
         accentPrimary: '#F58C7C',
         accentSecondary: '#F6B7A9',
         accentHighlight: '#FFE0B8',
+        accentLeaf: '#B7C9A8',
         success: '#7FA37A',
         warning: '#F0B56A',
         error: '#D9776A',
