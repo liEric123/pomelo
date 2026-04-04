@@ -10,6 +10,7 @@ are caught internally and re-raised as one of these domain types.
 """
 
 import json
+import random
 from datetime import datetime, time, timezone
 
 import anthropic
@@ -17,11 +18,14 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from models import Candidate, Match, MatchStatus, Role, Swipe, SwipeDirection
+from models import Candidate, Company, InterviewMessage, Match, MatchStatus, MessageRole, Role, Swipe, SwipeDirection
 from utils.resume_parser import extract_text
 from services.scoring_service import grade_resume
 from services.resume_service import generate_skill_vector, zero_skill_vector
 from services.matching_service import build_role_vector, cosine_similarity
+from services.question_service import generate_simul_questions
+import services.interview_session as session_mgr
+import services.summary_service as summary_service
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +62,10 @@ class DuplicateSwipeError(Exception):
 
 class SwipeLimitError(Exception):
     """Daily swipe limit reached."""
+
+
+class InvalidInterviewState(Exception):
+    """Interview cannot proceed from its current state."""
 
 
 CANDIDATE_DAILY_LIMIT = 5
@@ -424,6 +432,241 @@ def get_candidate_feed(candidate_id: int, session: Session) -> list[dict]:
 
     scored.sort(key=lambda x: x["match_percent"], reverse=True)
     return scored[:20]
+
+
+# ---------------------------------------------------------------------------
+# Interview flow
+# ---------------------------------------------------------------------------
+
+def start_interview(match_id: int, db: Session) -> dict:
+    """Load match context, generate questions, init in-memory session, return first question.
+
+    Updates match.status to interviewing.
+    Persists the first question as an InterviewMessage.
+
+    Raises:
+      NotFoundError         — match not found
+      InvalidInterviewState — match already completed
+    """
+    match = db.get(Match, match_id)
+    if not match:
+        raise NotFoundError(f"Match {match_id} not found.")
+    if match.status == MatchStatus.completed:
+        raise InvalidInterviewState("Interview already completed.")
+
+    # Reconnect: resume the existing in-memory session without regenerating questions
+    # or inserting another first-question message.
+    existing_sess = session_mgr.get_session(match_id)
+    if existing_sess is not None:
+        current_q = existing_sess.questions[existing_sess.current_index]
+        return _question_payload(current_q, index=existing_sess.current_index)
+
+    role = db.get(Role, match.role_id)
+    candidate = db.get(Candidate, match.candidate_id)
+    company = db.get(Company, role.company_id) if role else None
+    company_name = company.name if company else "Company"
+
+    questions = _generate_questions(role, candidate, company_name)
+
+    # Mark match as active
+    match.status = MatchStatus.interviewing
+    db.add(match)
+
+    # Persist first question message
+    first_q = questions[0]
+    msg = InterviewMessage(
+        match_id=match_id,
+        role=MessageRole.question,
+        content=first_q["text"],
+        question_index=0,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+
+    # Init in-memory session
+    session_mgr.create_session(
+        match_id=match_id,
+        role=role,
+        candidate=candidate,
+        company_name=company_name,
+        questions=questions,
+    )
+
+    return _question_payload(first_q, index=0)
+
+
+def complete_interview(match_id: int, db: Session) -> dict:
+    """Generate final summary, update Match, clean up in-memory session.
+
+    Returns the summary dict (from final_summary.md prompt).
+    """
+    sess = session_mgr.get_session(match_id)
+    match = db.get(Match, match_id)
+    if not match:
+        raise NotFoundError(f"Match {match_id} not found.")
+
+    role = db.get(Role, match.role_id)
+    candidate = db.get(Candidate, match.candidate_id)
+    company_name = sess.company_name if sess else "Company"
+
+    # Load all persisted messages in order
+    messages = db.exec(
+        select(InterviewMessage)
+        .where(InterviewMessage.match_id == match_id)
+        .order_by(InterviewMessage.created_at)
+    ).all()
+
+    qa_list = _build_qa_list(messages, sess)
+    interview_data = summary_service.build_interview_data(qa_list)
+    time_stats = _build_time_stats(sess, qa_list)
+
+    try:
+        summary = summary_service.generate_summary(
+            role_title=role.title if role else "Unknown Role",
+            company_name=company_name,
+            role_description=role.description if role else "",
+            candidate_name=candidate.name if candidate else "Unknown",
+            resume_score=int((candidate.resume_score or 0) * 100) if candidate else 0,
+            interview_data=interview_data,
+            time_stats=time_stats,
+        )
+    except (anthropic.APIError, anthropic.APIConnectionError, anthropic.APITimeoutError) as e:
+        raise AIServiceError(f"Summary generation failed: {e}") from e
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise AIServiceError(f"Summary response invalid: {e}") from e
+
+    # Persist to Match
+    now = _utcnow()
+    match.status = MatchStatus.completed
+    match.interview_summary = json.dumps(summary)
+    match.final_score = summary.get("scores_weighted")
+    match.recommendation = summary.get("verdict")
+    match.completed_at = now
+    db.add(match)
+    db.commit()
+
+    session_mgr.remove_session(match_id)
+    return summary
+
+
+def _generate_questions(role: Role, candidate: Candidate, company_name: str) -> list[dict]:
+    """Select interview questions for the simulation session.
+
+    Uses role.questions as the interviewer-selected set.
+    Falls back to a sample from the behavioral question bank if role has none.
+    """
+    if role.questions:
+        selected_set = "\n".join(f"- {q}" for q in role.questions)
+    else:
+        bank_path = _question_bank_path()
+        with open(bank_path, encoding="utf-8") as f:
+            bank = json.load(f)
+        sample = random.sample(bank["questions"], min(8, len(bank["questions"])))
+        selected_set = "\n".join(f"- {q['question']}" for q in sample)
+
+    candidate_background = (
+        f"{candidate.summary or 'No summary available.'}\n"
+        f"Skills: {', '.join(candidate.top_skills or [])}"
+    )
+
+    return generate_simul_questions(
+        role_title=role.title,
+        company_name=company_name,
+        role_description=role.description,
+        keywords=", ".join(role.keywords or []),
+        selected_question_set=selected_set,
+        candidate_background=candidate_background,
+    )
+
+
+def _question_bank_path() -> str:
+    import os
+    return os.path.normpath(
+        os.path.join(os.path.dirname(__file__), "..", "data", "question_bank.json")
+    )
+
+
+def _question_payload(q: dict, index: int) -> dict:
+    return {
+        "id": q["id"],
+        "index": index,
+        "text": q["text"],
+        "category": q["category"],
+        "expected_signals": q.get("expected_signals", []),
+        "max_seconds": session_mgr.MAX_SECONDS_PER_ANSWER,
+    }
+
+
+def _build_qa_list(messages: list, sess) -> list[dict]:
+    """Pair question and answer messages into the structure expected by build_interview_data.
+
+    Recruiter-injected follow-up Q&A is attached as nested fields on the preceding main
+    QA item (follow_up_text / follow_up_answer / follow_up_score) so that
+    summary_service.build_interview_data() can render it without KeyError.
+    """
+    qa_items: list[dict] = []
+    pending_q: dict | None = None
+    awaiting_followup_answer: bool = False
+
+    questions_by_index: dict[int, dict] = {}
+    if sess:
+        for i, q in enumerate(sess.questions):
+            questions_by_index[i] = q
+
+    for msg in messages:
+        if msg.role == MessageRole.question:
+            q_info = questions_by_index.get(msg.question_index or 0, {})
+            pending_q = {
+                "category": q_info.get("category", "behavioral"),
+                "question_text": msg.content,
+                "candidate_answer": "",
+                "score": 0.0,
+                "flag": None,
+                "follow_up": False,
+            }
+            awaiting_followup_answer = False
+
+        elif msg.role == MessageRole.follow_up:
+            if qa_items:
+                # Attach to the last completed QA as a nested follow-up.
+                qa_items[-1]["follow_up"] = True
+                qa_items[-1]["follow_up_text"] = msg.content
+                qa_items[-1]["follow_up_answer"] = ""
+                qa_items[-1]["follow_up_score"] = 0.0
+                awaiting_followup_answer = True
+            # follow_up before any QA is dropped (shouldn't happen in practice)
+
+        elif msg.role == MessageRole.answer:
+            if awaiting_followup_answer and qa_items:
+                qa_items[-1]["follow_up_answer"] = msg.content
+                qa_items[-1]["follow_up_score"] = msg.score or 0.0
+                awaiting_followup_answer = False
+            elif pending_q is not None:
+                pending_q["candidate_answer"] = msg.content
+                pending_q["score"] = msg.score or 0.0
+                pending_q["flag"] = msg.flags[0] if msg.flags else None
+                qa_items.append(pending_q)
+                pending_q = None
+
+    return qa_items
+
+
+def _build_time_stats(sess, qa_list: list[dict]) -> str:
+    """Format timing data for the summary prompt."""
+    times = (sess.elapsed_times if sess else []) or [0] * max(len(qa_list), 1)
+    if not times:
+        return "- No timing data available."
+    avg = sum(times) / len(times)
+    fastest_idx = times.index(min(times))
+    slowest_idx = times.index(max(times))
+    timed_out = sum(1 for t in times if t >= session_mgr.MAX_SECONDS_PER_ANSWER)
+    return summary_service.build_time_stats(
+        avg_seconds=avg,
+        fastest=(fastest_idx + 1, times[fastest_idx]),
+        slowest=(slowest_idx + 1, times[slowest_idx]),
+        timed_out_count=timed_out,
+    )
 
 
 # ---------------------------------------------------------------------------
