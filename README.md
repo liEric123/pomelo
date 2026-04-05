@@ -9,38 +9,47 @@ Candidates can sign up, upload a resume, get matched to roles, swipe on opportun
 Hiring is messy. Candidates send out tons of applications, recruiters sort through piles of low-signal resumes, and good people can get missed.
 
 Pomelo helps fix that with signal compression across the funnel, turning noisy candidate information into a more structured, AI-native hiring workflow that still keeps recruiters in control:
-- better role matching
-- clearer interviews
-- live recruiter visibility
-- stronger decision support at the end
+
+- Better role matching
+- Clearer interviews
+- Live recruiter visibility
+- Stronger decision support at the end
 
 ## What We Built
 
-- a React + TypeScript + Vite frontend
-- a FastAPI backend with service-based architecture
-- resume upload and AI scoring
-- a swipe-based candidate feed
-- live interview flow over WebSocket
-- recruiter live dashboard over SSE
-- recruiter question injection during interviews
-- candidate comparison support for shortlist decisions
+- A React + TypeScript + Vite frontend
+- A FastAPI backend with service-based architecture
+- Resume upload and AI scoring
+- A swipe-based candidate feed
+- Live interview flow over WebSocket
+- Recruiter live dashboard over SSE
+- Recruiter question injection during interviews
+- Candidate comparison support for shortlist decisions
 
 ## Technical Highlights
 
 This project shows work across:
-- frontend architecture with React, TypeScript, Tailwind, and shared design tokens
-- backend API design with FastAPI, SQLModel, and separated service modules
-- real-time systems using WebSockets and Server-Sent Events
-- real-time communication across candidate interviews and recruiter monitoring
-- low-latency update flows for live interview and dashboard experiences
-- vector-based matching and ranking logic
+
+**Frontend**
+- Frontend architecture with React, TypeScript, Tailwind, and shared design tokens
+- Typed client/server data flows
+- Product-focused UX for candidate and recruiter flows
+
+**Backend**
+- Backend API design with FastAPI, SQLModel, and separated service modules
 - LRU-backed prompt and template loading
-- concurrent processes for interview flow, grading, follow-up handling, and live updates
-- an agentic processing system for orchestrating AI-assisted hiring workflows
-- human-in-the-loop decision support instead of fully automated hiring decisions
-- typed client/server data flows
 - AI-assisted resume scoring, grading, summaries, and comparison workflows
-- product-focused UX for candidate and recruiter flows
+
+**Real-Time**
+- Real-time systems using WebSockets and Server-Sent Events
+- Real-time communication across candidate interviews and recruiter monitoring
+- Low-latency update flows for live interview and dashboard experiences
+
+**AI & Orchestration**
+- Vector-based matching and ranking logic
+- Concurrent processes for interview flow, grading, follow-up handling, and live updates
+- An agentic processing system for orchestrating AI-assisted hiring workflows
+- Human-in-the-loop decision support instead of fully automated hiring decisions
 
 ## Real-World Impact
 
@@ -64,9 +73,10 @@ The goal of Pomelo is simple: help candidates spend less time applying blindly, 
 
 ## Future Scaling Plan
 
-As Pomelo grows, the next step is to scale the platform in ways that preserve low latency and strong recruiter visibility:
-- move from demo-oriented in-memory interview state to more durable distributed session management
-- expand vector-based ranking and retrieval for larger candidate and role pools
-- introduce stronger background job processing for grading, summaries, and comparison workloads
-- harden real-time communication for higher interview concurrency
-- add deeper analytics, auditability, and recruiter tooling while keeping the workflow human-in-the-loop
+As Pomelo grows, the next areas of investment are:
+
+- AI moderation features to flag low-quality or off-topic responses before they reach recruiters
+- Multiple rounds of interviewing for higher signal across candidate evaluation
+- More advanced AI reasoning for deeper, more nuanced candidate analysis
+- Richer feedback for candidates so they can understand how they performed and improve
+- A system to track candidate performance over time across applications and interviews
