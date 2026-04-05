@@ -6,6 +6,7 @@ import { subscribeDashboard } from '../lib/sse'
 
 const DEFAULT_TOTAL_QUESTIONS = 4
 const ACTIVE_INTERVIEWS_REFRESH_MS = 10000
+const ROLE_PIPELINE_REFRESH_MS = 15000
 
 type ActiveInterview = {
   match_id: number
@@ -475,17 +476,19 @@ export function RecruiterDashboardPage() {
     }
   }, [roleOptions, selectedRoleId])
 
-  const loadRoleDashboard = useCallback(async (roleId: number) => {
-    setIsDashboardLoading(true)
-    setDashboardError(null)
+  const loadRoleDashboard = useCallback(async (roleId: number, silent = false) => {
+    if (!silent) setIsDashboardLoading(true)
+    if (!silent) setDashboardError(null)
     try {
       const data = await fetchRoleDashboard(roleId)
       setRoleDashboard(data)
     } catch (error) {
-      setDashboardError(getErrorMessage(error, 'Could not load role pipeline data.'))
-      setRoleDashboard(null)
+      if (!silent) {
+        setDashboardError(getErrorMessage(error, 'Could not load role pipeline data.'))
+        setRoleDashboard(null)
+      }
     } finally {
-      setIsDashboardLoading(false)
+      if (!silent) setIsDashboardLoading(false)
     }
   }, [])
 
@@ -496,6 +499,15 @@ export function RecruiterDashboardPage() {
       return
     }
     void loadRoleDashboard(selectedRoleIdNum)
+  }, [selectedRoleIdNum, loadRoleDashboard])
+
+  // Background poll — keeps pipeline context fresh without blanking the UI
+  useEffect(() => {
+    if (selectedRoleIdNum == null) return
+    const id = window.setInterval(() => {
+      void loadRoleDashboard(selectedRoleIdNum, true)
+    }, ROLE_PIPELINE_REFRESH_MS)
+    return () => window.clearInterval(id)
   }, [selectedRoleIdNum, loadRoleDashboard])
 
   // Scroll to focused match panel once panels have loaded

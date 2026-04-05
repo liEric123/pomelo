@@ -10,6 +10,7 @@ const DEFAULT_TOTAL_QUESTIONS = 4
 const FRAME_CAPTURE_INTERVAL_MS = 5000
 const EMPTY_RESPONSE_FALLBACK =
   'Candidate completed a video response without a written summary.'
+const MAX_WS_RECONNECTS = 4
 
 type InterviewPhase =
   | 'waiting'
@@ -125,6 +126,8 @@ export function CandidateInterviewPage() {
   const [questionCount, setQuestionCount] = useState(1)
   const [questionTotal, setQuestionTotal] = useState(DEFAULT_TOTAL_QUESTIONS)
   const [websocketError, setWebsocketError] = useState<string | null>(null)
+  const [wsPermanentlyFailed, setWsPermanentlyFailed] = useState(false)
+  const [wsRetryKey, setWsRetryKey] = useState(0)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [responseDraft, setResponseDraft] = useState('')
@@ -226,6 +229,7 @@ export function CandidateInterviewPage() {
         }
 
         setWebsocketError(null)
+        setWsPermanentlyFailed(false)
         reconnectCountRef.current = 0
       })
 
@@ -260,7 +264,7 @@ export function CandidateInterviewPage() {
 
       socket.addEventListener('error', () => {
         if (!cancelled) {
-          setWebsocketError('We lost the live interview connection. Trying again...')
+          setWebsocketError('We lost the live interview connection. Reconnecting…')
         }
       })
 
@@ -269,17 +273,20 @@ export function CandidateInterviewPage() {
           return
         }
 
-        if (reconnectCountRef.current >= 2) {
-          setWebsocketError('The interview connection could not be restored.')
+        if (reconnectCountRef.current >= MAX_WS_RECONNECTS) {
+          setWsPermanentlyFailed(true)
+          setWebsocketError('The interview connection could not be restored. You can try reconnecting below.')
           return
         }
 
         reconnectCountRef.current += 1
+        // Exponential backoff: 1s, 2s, 4s, 8s
+        const delay = Math.pow(2, reconnectCountRef.current - 1) * 1000
         window.setTimeout(() => {
           if (!cancelled) {
             openSocket()
           }
-        }, reconnectCountRef.current * 1000)
+        }, delay)
       })
     }
 
@@ -291,7 +298,7 @@ export function CandidateInterviewPage() {
       socketRef.current?.close()
       socketRef.current = null
     }
-  }, [hasMatchId, matchId, session])
+  }, [hasMatchId, matchId, session, wsRetryKey])
 
   useEffect(() => {
     let disposed = false
@@ -497,6 +504,19 @@ export function CandidateInterviewPage() {
                 {resolvedWebsocketError ? (
                   <div className="font-ui rounded-[1.3rem] border border-error/20 bg-error/10 px-5 py-4 text-center text-sm leading-6 text-textPrimary">
                     {resolvedWebsocketError}
+                    {wsPermanentlyFailed ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWsPermanentlyFailed(false)
+                          setWebsocketError(null)
+                          setWsRetryKey((k) => k + 1)
+                        }}
+                        className="font-ui mt-3 inline-flex w-full items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                      >
+                        Reconnect
+                      </button>
+                    ) : null}
                   </div>
                 ) : phase !== 'waiting' ? (
                   <div className="rounded-[1.45rem] border border-border/80 bg-surfaceAlt px-5 py-4">
