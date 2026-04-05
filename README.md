@@ -8,7 +8,7 @@ Candidates can sign up, upload a resume, get matched to roles, swipe on opportun
 
 Hiring is messy. Candidates send out tons of applications, recruiters sort through piles of low-signal resumes, and good people can get missed.
 
-Pomelo helps fix that by making the process more structured:
+Pomelo helps fix that with signal compression across the funnel, turning noisy candidate information into a more structured, AI-native hiring workflow that still keeps recruiters in control:
 - better role matching
 - clearer interviews
 - live recruiter visibility
@@ -32,17 +32,19 @@ This project shows work across:
 - backend API design with FastAPI, SQLModel, and separated service modules
 - real-time systems using WebSockets and Server-Sent Events
 - real-time communication across candidate interviews and recruiter monitoring
+- low-latency update flows for live interview and dashboard experiences
 - vector-based matching and ranking logic
 - LRU-backed prompt and template loading
 - concurrent processes for interview flow, grading, follow-up handling, and live updates
 - an agentic processing system for orchestrating AI-assisted hiring workflows
+- human-in-the-loop decision support instead of fully automated hiring decisions
 - typed client/server data flows
 - AI-assisted resume scoring, grading, summaries, and comparison workflows
 - product-focused UX for candidate and recruiter flows
 
 ## Real-World Impact
 
-The goal of Pomelo is simple: help candidates spend less time applying blindly, help recruiters spend less time sorting weak-fit applications, and make hiring decisions feel more consistent, evidence-backed, and human.
+The goal of Pomelo is simple: help candidates spend less time applying blindly, help recruiters spend less time sorting weak-fit applications, and make hiring decisions feel more consistent, evidence-backed, and human. The product is AI-native in how it processes resumes, interviews, and comparisons, but it stays human-in-the-loop where it matters most: final judgment.
 
 ## Product Flow
 
@@ -60,16 +62,11 @@ The goal of Pomelo is simple: help candidates spend less time applying blindly, 
 4. Inject follow-up questions
 5. Compare candidates and make a decision
 
-## Architecture Notes
+## Future Scaling Plan
 
-Pomelo follows a clean service-oriented structure:
-- thin routes
-- focused backend services
-- a central `HiringCoordinator`
-- concurrent processes supporting live interview progression and recruiter-side event delivery
-- typed real-time event payloads
-- AI responsibilities split by domain instead of packed into one giant file
-
-## In Short
-
-Pomelo is a hiring platform that tries to turn a chaotic process into a clearer one, using AI as a helper, not a replacement for human judgment.
+As Pomelo grows, the next step is to scale the platform in ways that preserve low latency and strong recruiter visibility:
+- move from demo-oriented in-memory interview state to more durable distributed session management
+- expand vector-based ranking and retrieval for larger candidate and role pools
+- introduce stronger background job processing for grading, summaries, and comparison workloads
+- harden real-time communication for higher interview concurrency
+- add deeper analytics, auditability, and recruiter tooling while keeping the workflow human-in-the-loop
