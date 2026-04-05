@@ -25,12 +25,13 @@ function getNavClasses(isActive: boolean) {
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { session, isAuthenticated, logout } = useAuth()
+  const { session, isAuthenticated, isCandidate, logout } = useAuth()
   const [isHeaderVisible, setIsHeaderVisible] = useState(false)
   const audience = location.pathname.startsWith('/recruiter')
     ? 'recruiter'
     : 'candidate'
   const hideTopBar = location.pathname.startsWith('/candidate/interview/')
+  const showNavigation = !(audience === 'candidate' && !isAuthenticated)
   const headerClasses = [
     'pointer-events-auto fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/82 backdrop-blur-xl transition-all duration-500 ease-out',
     isHeaderVisible
@@ -39,8 +40,13 @@ export function AppLayout() {
   ].join(' ')
 
   const links = useMemo(
-    () => (audience === 'candidate' ? candidateLinks : recruiterLinks),
-    [audience],
+    () =>
+      audience === 'candidate'
+        ? candidateLinks.filter((link) =>
+            isCandidate ? link.to !== '/candidate/signup' : true,
+          )
+        : recruiterLinks,
+    [audience, isCandidate],
   )
 
   const shellPaddingClasses = hideTopBar ? 'p-4 sm:p-5' : 'p-8'
@@ -91,16 +97,18 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-pomelo-wash text-textPrimary">
-      <div
-        className="fixed inset-x-0 top-0 z-30"
-        onMouseEnter={() => setIsHeaderVisible(true)}
-        onMouseLeave={() => setIsHeaderVisible(false)}
-      >
-        <div className="absolute inset-x-0 top-0 h-10" />
-        <header className={headerClasses}>
-          {headerContent}
-        </header>
-      </div>
+      {showNavigation ? (
+        <div
+          className="fixed inset-x-0 top-0 z-30"
+          onMouseEnter={() => setIsHeaderVisible(true)}
+          onMouseLeave={() => setIsHeaderVisible(false)}
+        >
+          <div className="absolute inset-x-0 top-0 h-10" />
+          <header className={headerClasses}>
+            {headerContent}
+          </header>
+        </div>
+      ) : null}
 
       <main
         className={[
