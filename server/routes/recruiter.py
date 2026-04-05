@@ -4,6 +4,19 @@ from sqlmodel import Session
 from typing import Optional
 
 from database import get_session
+from services.hiring_coordinator import (
+    AIServiceError,
+    DuplicateSwipeError,
+    InvalidSwipeError,
+    NotFoundError,
+    SwipeLimitError,
+    compare_role_candidates as _compare_role_candidates,
+    get_active_interviews as _get_active_interviews,
+    get_role_candidates as _get_role_candidates,
+    get_role_dashboard as _get_role_dashboard,
+    record_swipe as _record_swipe,
+    screen_candidate_keywords as _screen_candidate_keywords,
+)
 from services.recruiter_service import (
     RecruiterCompanyNotFoundError,
     RecruiterRoleValidationError,
@@ -60,8 +73,6 @@ def create_role(
         raise HTTPException(status_code=400, detail=str(exc))
     except RecruiterCompanyNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/roles")
@@ -74,9 +85,9 @@ def list_roles(
     Returns role metadata including keywords, score range, and question count.
     """
     try:
-        return _list_roles(company_id, session)
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        return _list_roles(company_id=company_id, session=session)
+    except RecruiterRoleValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------
