@@ -523,6 +523,16 @@ export function RecruiterRolesPage() {
             >
               {isLoading ? 'Refreshing…' : 'Refresh roles'}
             </button>
+            <Link
+              to={
+                selectedRoleId != null
+                  ? `/recruiter/dashboard?roleId=${selectedRoleId}`
+                  : '/recruiter/dashboard'
+              }
+              className="inline-flex w-full items-center justify-center rounded-full border border-border bg-surfaceAlt px-5 py-3 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/15"
+            >
+              Live monitor →
+            </Link>
           </div>
 
           {loadError ? (
@@ -1166,7 +1176,19 @@ export function RecruiterRolesPage() {
           {/* Reviewed candidates — compact rows */}
           {!queueLoading && reviewedCandidates.length > 0 ? (
             <div className="space-y-3">
-              <p className="type-kicker px-1">Reviewed</p>
+              <div className="flex items-center justify-between px-1">
+                <p className="type-kicker">Reviewed</p>
+                {reviewedCandidates.some(
+                  (c) => candidateStates[c.candidate_id]?.swipeOutcome?.matched,
+                ) ? (
+                  <Link
+                    to={`/recruiter/dashboard?roleId=${selectedRoleId ?? ''}`}
+                    className="font-ui text-sm font-semibold text-navButton underline-offset-2 hover:text-navButtonHover hover:underline"
+                  >
+                    Monitor live interviews →
+                  </Link>
+                ) : null}
+              </div>
               {reviewedCandidates.map((candidate) => {
                 const cstate = candidateStates[candidate.candidate_id]
                 const outcome = cstate?.swipeOutcome

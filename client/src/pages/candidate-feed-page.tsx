@@ -1,4 +1,4 @@
-import { createRef, useEffect, useMemo, useRef, useState } from 'react'
+import { createRef, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type {
   SwipeDirection as TinderSwipeDirection,
@@ -109,10 +109,14 @@ export function CandidateFeedPage() {
   const refs = useRef<RefObject<TinderCardApi>[]>([])
   const processedRoleIds = useRef<Set<number>>(new Set())
 
-  useEffect(() => {
-    let cancelled = false
+  const loadFeed = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) {
+        setIsLoading(true)
+      }
 
-    async function loadFeed() {
+      setFeedError(null)
+
       if (!candidateId) {
         setFeedError('Create your candidate profile first so we can build your feed.')
         setIsLoading(false)
@@ -121,36 +125,29 @@ export function CandidateFeedPage() {
 
       try {
         const response = await fetchCandidateFeed(candidateId)
-        if (cancelled) {
-          return
-        }
-
         processedRoleIds.current.clear()
         setRoles(response)
         setActiveIndex(Math.max(response.length - 1, 0))
       } catch (error) {
-        if (!cancelled) {
-          setFeedError(getFeedErrorMessage(error))
-        }
+        setFeedError(getFeedErrorMessage(error))
       } finally {
-        if (!cancelled) {
+        if (showLoading) {
           setIsLoading(false)
         }
       }
-    }
+    },
+    [candidateId],
+  )
 
+  useEffect(() => {
     void loadFeed()
-
-    return () => {
-      cancelled = true
-    }
-  }, [candidateId])
+  }, [loadFeed])
 
   refs.current = roles.map(
     (_, index) => refs.current[index] ?? createRef(),
   )
 
-  async function handleSwipe(direction: SwipeDirection, role: FeedRole) {
+  async function handleSwipe(direction: SwipeDirection, role: FeedRole, cardIndex: number) {
     if (!candidateId || processedRoleIds.current.has(role.role_id)) {
       return
     }
@@ -158,7 +155,6 @@ export function CandidateFeedPage() {
     processedRoleIds.current.add(role.role_id)
     setSwipeError(null)
     setExpandedRoleId((current) => (current === role.role_id ? null : current))
-    setSwipesRemaining((current) => Math.max(0, current - 1))
 
     try {
       const response = await postSwipe(
@@ -167,17 +163,30 @@ export function CandidateFeedPage() {
         direction === 'right' ? 'like' : 'pass',
       )
 
+      setSwipesRemaining((current) => Math.max(0, current - 1))
+      setComeBackTomorrow(false)
+
       if (response.matched) {
         setMatchState({ open: true, roleTitle: role.title, matchId: response.match_id ?? null })
       }
     } catch (error) {
+      processedRoleIds.current.delete(role.role_id)
+      const cardRef = refs.current[cardIndex]?.current
+
       if (error instanceof Error && error.message.includes('status 429')) {
+        await cardRef?.restoreCard()
+        setActiveIndex(cardIndex)
         setComeBackTomorrow(true)
         setSwipesRemaining(0)
         return
       }
 
+      await cardRef?.restoreCard()
+      setActiveIndex(cardIndex)
       setSwipeError(getFeedErrorMessage(error))
+      if (!cardRef) {
+        void loadFeed(false)
+      }
     }
   }
 
@@ -284,7 +293,7 @@ export function CandidateFeedPage() {
                 preventSwipe={['up', 'down']}
                 onSwipe={(direction) => {
                   if (direction === 'left' || direction === 'right') {
-                    void handleSwipe(direction, role)
+                    void handleSwipe(direction, role, index)
                   }
                 }}
                 onCardLeftScreen={() => handleCardLeftScreen(index)}

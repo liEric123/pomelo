@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/auth-context'
 import { API_BASE_URL } from '../lib/api'
 
@@ -7,9 +7,10 @@ const THINKING_DURATION_SECONDS = 20
 const RECORDING_DURATION_SECONDS = 120
 const BREAK_DURATION_SECONDS = 15
 const DEFAULT_TOTAL_QUESTIONS = 4
-const FRAME_CAPTURE_INTERVAL_MS = 200
+const FRAME_CAPTURE_INTERVAL_MS = 5000
 const EMPTY_RESPONSE_FALLBACK =
   'Candidate completed a video response without a written summary.'
+const MAX_WS_RECONNECTS = 4
 
 type InterviewPhase =
   | 'waiting'
@@ -125,6 +126,8 @@ export function CandidateInterviewPage() {
   const [questionCount, setQuestionCount] = useState(1)
   const [questionTotal, setQuestionTotal] = useState(DEFAULT_TOTAL_QUESTIONS)
   const [websocketError, setWebsocketError] = useState<string | null>(null)
+  const [wsPermanentlyFailed, setWsPermanentlyFailed] = useState(false)
+  const [wsRetryKey, setWsRetryKey] = useState(0)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [responseDraft, setResponseDraft] = useState('')
@@ -138,6 +141,7 @@ export function CandidateInterviewPage() {
   const manuallyClosedRef = useRef(false)
   const currentPromptRef = useRef<InterviewPrompt | null>(null)
   const phaseRef = useRef<InterviewPhase>('waiting')
+  const pendingAnswerRef = useRef<Record<string, unknown> | null>(null)
 
   const questionCounterText = useMemo(
     () => `Q${questionCount}/${questionTotal}`,
@@ -149,14 +153,19 @@ export function CandidateInterviewPage() {
 
   const showVideoPreview = cameraReady
 
-  function sendSocketMessage(payload: Record<string, unknown>) {
+  const trySendSocketMessage = useCallback((payload: Record<string, unknown>) => {
     const socket = socketRef.current
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      return
+      return false
     }
 
-    socket.send(JSON.stringify(payload))
-  }
+    try {
+      socket.send(JSON.stringify(payload))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
   function activatePrompt(nextPrompt: InterviewPrompt) {
     setCurrentPrompt(nextPrompt)
@@ -169,30 +178,57 @@ export function CandidateInterviewPage() {
     setSecondsRemaining(THINKING_DURATION_SECONDS)
   }
 
-  function beginBreak() {
+  const beginBreak = useCallback(() => {
     responseStartedAtRef.current = null
     setPhase('break')
     setSecondsRemaining(BREAK_DURATION_SECONDS)
-  }
+  }, [])
+
+  const flushPendingAnswer = useCallback(() => {
+    if (!pendingAnswerRef.current) {
+      return false
+    }
+
+    if (!trySendSocketMessage(pendingAnswerRef.current)) {
+      return false
+    }
+
+    pendingAnswerRef.current = null
+    setWebsocketError(null)
+    beginBreak()
+    return true
+  }, [beginBreak, trySendSocketMessage])
 
   const finishRecording = useCallback(() => {
     if (phaseRef.current !== 'recording') {
-      return
+      return false
     }
 
     const elapsedSeconds = responseStartedAtRef.current
       ? Math.max(1, Math.round((Date.now() - responseStartedAtRef.current) / 1000))
       : 0
     const answerText = responseDraftRef.current.trim() || EMPTY_RESPONSE_FALLBACK
-
-    sendSocketMessage({
+    const answerPayload = {
       type: 'answer',
       text: answerText,
       elapsed_seconds: elapsedSeconds,
-    })
+    }
 
+    if (!trySendSocketMessage(answerPayload)) {
+      pendingAnswerRef.current = answerPayload
+      setWebsocketError(
+        'We lost the live interview connection before your answer was submitted. Stay on this page while we reconnect and send it.',
+      )
+      setPhase('waiting')
+      setSecondsRemaining(0)
+      return false
+    }
+
+    pendingAnswerRef.current = null
+    setWebsocketError(null)
     beginBreak()
-  }, [])
+    return true
+  }, [beginBreak, trySendSocketMessage])
 
   useEffect(() => {
     currentPromptRef.current = currentPrompt
@@ -226,7 +262,14 @@ export function CandidateInterviewPage() {
         }
 
         setWebsocketError(null)
+        setWsPermanentlyFailed(false)
         reconnectCountRef.current = 0
+
+        if (pendingAnswerRef.current && !flushPendingAnswer()) {
+          setWebsocketError(
+            'We reconnected, but your last answer is still waiting to submit. Please stay on this page.',
+          )
+        }
       })
 
       socket.addEventListener('message', (event) => {
@@ -242,6 +285,9 @@ export function CandidateInterviewPage() {
             setQueuedPrompt(null)
             setPhase('completed')
             setSecondsRemaining(0)
+            pendingAnswerRef.current = null
+            manuallyClosedRef.current = true
+            socket.close()
             return
           }
 
@@ -260,26 +306,29 @@ export function CandidateInterviewPage() {
 
       socket.addEventListener('error', () => {
         if (!cancelled) {
-          setWebsocketError('We lost the live interview connection. Trying again...')
+          setWebsocketError('We lost the live interview connection. Reconnecting…')
         }
       })
 
       socket.addEventListener('close', () => {
-        if (cancelled || manuallyClosedRef.current) {
+        if (cancelled || manuallyClosedRef.current || phaseRef.current === 'completed') {
           return
         }
 
-        if (reconnectCountRef.current >= 2) {
-          setWebsocketError('The interview connection could not be restored.')
+        if (reconnectCountRef.current >= MAX_WS_RECONNECTS) {
+          setWsPermanentlyFailed(true)
+          setWebsocketError('The interview connection could not be restored. You can try reconnecting below.')
           return
         }
 
         reconnectCountRef.current += 1
+        // Exponential backoff: 1s, 2s, 4s, 8s
+        const delay = Math.pow(2, reconnectCountRef.current - 1) * 1000
         window.setTimeout(() => {
           if (!cancelled) {
             openSocket()
           }
-        }, reconnectCountRef.current * 1000)
+        }, delay)
       })
     }
 
@@ -291,7 +340,7 @@ export function CandidateInterviewPage() {
       socketRef.current?.close()
       socketRef.current = null
     }
-  }, [hasMatchId, matchId, session])
+  }, [hasMatchId, matchId, session, wsRetryKey])
 
   useEffect(() => {
     let disposed = false
@@ -364,8 +413,8 @@ export function CandidateInterviewPage() {
         }
 
         if (phase === 'recording') {
-          finishRecording()
-          return BREAK_DURATION_SECONDS
+          const submitted = finishRecording()
+          return submitted ? BREAK_DURATION_SECONDS : current
         }
 
         if (queuedPrompt) {
@@ -385,12 +434,7 @@ export function CandidateInterviewPage() {
   }, [currentPrompt, finishRecording, phase, queuedPrompt])
 
   useEffect(() => {
-    if (
-      (phase !== 'thinking' && phase !== 'recording' && phase !== 'break') ||
-      !cameraReady ||
-      !videoRef.current ||
-      !canvasRef.current
-    ) {
+    if (phase !== 'recording' || !cameraReady || !videoRef.current || !canvasRef.current) {
       return
     }
 
@@ -418,7 +462,7 @@ export function CandidateInterviewPage() {
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
       const base64 = canvas.toDataURL('image/jpeg', 0.5)
 
-      sendSocketMessage({
+      trySendSocketMessage({
         type: 'frame',
         data: { base64 },
       })
@@ -427,7 +471,7 @@ export function CandidateInterviewPage() {
     return () => {
       window.clearInterval(interval)
     }
-  }, [cameraReady, phase])
+  }, [cameraReady, phase, trySendSocketMessage])
 
   useEffect(() => {
     return () => {
@@ -458,7 +502,7 @@ export function CandidateInterviewPage() {
               </div>
 
               <div className="max-w-4xl pt-1">
-                <h2 className="font-display text-[1.35rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[1.7rem]">
+                <h2 className="font-display text-[1.55rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[2rem]">
                   {currentPrompt?.text ??
                     'Connecting to your interview session and preparing the first question.'}
                 </h2>
@@ -502,6 +546,19 @@ export function CandidateInterviewPage() {
                 {resolvedWebsocketError ? (
                   <div className="font-ui rounded-[1.3rem] border border-error/20 bg-error/10 px-5 py-4 text-center text-sm leading-6 text-textPrimary">
                     {resolvedWebsocketError}
+                    {wsPermanentlyFailed ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWsPermanentlyFailed(false)
+                          setWebsocketError(null)
+                          setWsRetryKey((k) => k + 1)
+                        }}
+                        className="font-ui mt-3 inline-flex w-full items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                      >
+                        Reconnect
+                      </button>
+                    ) : null}
                   </div>
                 ) : phase !== 'waiting' ? (
                   <div className="rounded-[1.45rem] border border-border/80 bg-surfaceAlt px-5 py-4">
@@ -618,13 +675,22 @@ export function CandidateInterviewPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/candidate/matches')}
-                className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
-              >
-                Leave interview
-              </button>
+              {phase === 'completed' ? (
+                <Link
+                  to="/candidate/matches"
+                  className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                >
+                  View your results →
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate('/candidate/matches')}
+                  className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+                >
+                  Leave interview
+                </button>
+              )}
             </div>
           </aside>
         </div>
