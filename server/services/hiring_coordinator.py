@@ -463,8 +463,12 @@ def start_interview(match_id: int, db: Session) -> dict:
         return _question_payload(current_q, index=existing_sess.current_index)
 
     role = db.get(Role, match.role_id)
+    if not role:
+        raise NotFoundError(f"Role {match.role_id} not found.")
     candidate = db.get(Candidate, match.candidate_id)
-    company = db.get(Company, role.company_id) if role else None
+    if not candidate:
+        raise NotFoundError(f"Candidate {match.candidate_id} not found.")
+    company = db.get(Company, role.company_id)
     company_name = company.name if company else "Company"
 
     questions = _generate_questions(role, candidate, company_name)
