@@ -4,6 +4,8 @@ from sqlmodel import Session
 from typing import Optional
 
 from database import get_session
+from models import AuthUser
+from services.auth_service import ensure_recruiter_role_access, require_recruiter
 from services.hiring_coordinator import (
     AIServiceError,
     DuplicateSwipeError,
@@ -47,6 +49,7 @@ class RoleCreate(BaseModel):
 def create_role(
     body: RoleCreate,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Create a new role.
 
@@ -55,7 +58,8 @@ def create_role(
 
     Returns the created role with role_id.
     """
-
+    if user.company_id != body.company_id:
+        raise HTTPException(status_code=403, detail="Access denied.")
     try:
         return _create_role(
             company_id=body.company_id,
@@ -79,11 +83,14 @@ def create_role(
 def list_roles(
     company_id: int,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """List all active roles for a company.
 
     Returns role metadata including keywords, score range, and question count.
     """
+    if user.company_id != company_id:
+        raise HTTPException(status_code=403, detail="Access denied.")
     try:
         return _list_roles(company_id=company_id, session=session)
     except RecruiterRoleValidationError as exc:
@@ -100,12 +107,14 @@ def list_roles(
 def get_role_candidates(
     role_id: int,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Return candidates who liked this role and are waiting for recruiter review.
 
     Sorted by resume_score descending. Only shows candidates the recruiter
     hasn't swiped on yet. Use POST .../swipe to act on each candidate.
     """
+    ensure_recruiter_role_access(role_id, user, session)
     try:
         return _get_role_candidates(role_id, session)
     except NotFoundError as e:
@@ -117,6 +126,7 @@ def keyword_filter_candidate(
     role_id: int,
     candidate_id: int,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Run AI keyword screening for a candidate against a role.
 
@@ -125,6 +135,7 @@ def keyword_filter_candidate(
 
     Response: {candidate_id, role_id, keyword_score, reasoning, approve_for_interview}
     """
+    ensure_recruiter_role_access(role_id, user, session)
     try:
         return _screen_candidate_keywords(candidate_id, role_id, session)
     except NotFoundError as e:
@@ -143,6 +154,7 @@ def recruiter_swipe(
     candidate_id: int,
     body: RecruiterSwipeRequest,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Record a recruiter's like or pass on a candidate for a role.
 
@@ -152,6 +164,7 @@ def recruiter_swipe(
     Returns {"matched": true, "match_id": <id>} on mutual like,
     or {"matched": false} otherwise.
     """
+    ensure_recruiter_role_access(role_id, user, session)
     try:
         return _record_swipe(candidate_id, role_id, body.direction, "recruiter", session)
     except NotFoundError as e:
@@ -172,6 +185,7 @@ def recruiter_swipe(
 def get_active_interviews(
     company_id: Optional[int] = None,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Return all matches currently in the interviewing state.
 
@@ -180,7 +194,10 @@ def get_active_interviews(
     Each item: {match_id, role_id, role_title, candidate_id, candidate_name,
                 top_skills, matched_at}
     """
-    return _get_active_interviews(session, company_id=company_id)
+    if company_id is not None and company_id != user.company_id:
+        raise HTTPException(status_code=403, detail="Access denied.")
+    effective_company_id = user.company_id
+    return _get_active_interviews(session, company_id=effective_company_id)
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +208,7 @@ def get_active_interviews(
 def get_dashboard(
     role_id: int,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Return the recruiter dashboard for a role.
 
@@ -207,6 +225,7 @@ def get_dashboard(
     active: pending + interviewing matches.
     completed: finished interviews with parsed summary payload.
     """
+    ensure_recruiter_role_access(role_id, user, session)
     try:
         return _get_role_dashboard(role_id, session)
     except NotFoundError as e:
@@ -218,6 +237,7 @@ def compare_candidates(
     role_id: int,
     keep_top_pct: float = 0.5,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Rank all completed candidates for a role and return advance/reject split.
 
@@ -235,6 +255,7 @@ def compare_candidates(
     """
     if not (0.0 <= keep_top_pct <= 1.0):
         raise HTTPException(status_code=400, detail="keep_top_pct must be between 0.0 and 1.0.")
+    ensure_recruiter_role_access(role_id, user, session)
     try:
         return _compare_role_candidates(role_id, keep_top_pct, session)
     except NotFoundError as e:

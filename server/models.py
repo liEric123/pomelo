@@ -23,6 +23,11 @@ def utcnow() -> datetime:
 # Enums
 # ---------------------------------------------------------------------------
 
+class UserRole(str, Enum):
+    candidate = "candidate"
+    recruiter = "recruiter"
+
+
 class SwipeDirection(str, Enum):
     like = "like"
     pass_ = "pass"
@@ -40,6 +45,31 @@ class MessageRole(str, Enum):
     question = "question"     # AI-generated question sent to candidate
     answer = "answer"         # candidate's response
     follow_up = "follow_up"   # recruiter-injected or AI-suggested follow-up
+
+
+# ---------------------------------------------------------------------------
+# AuthUser
+# ---------------------------------------------------------------------------
+
+class AuthUser(SQLModel, table=True):
+    """Login credentials and role for a demo user.
+
+    Linked to either a Candidate or Company (recruiter) domain record.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True)
+    hashed_password: str
+    role: UserRole                                    # "candidate" or "recruiter"
+
+    # Exactly one of these should be set, matching the role
+    candidate_id: Optional[int] = Field(default=None, foreign_key="candidate.id")
+    company_id: Optional[int] = Field(default=None, foreign_key="company.id")
+
+    created_at: datetime = Field(
+        default_factory=utcnow,
+        sa_column=Column(sa.DateTime(timezone=True), nullable=False),
+    )
 
 
 # ---------------------------------------------------------------------------

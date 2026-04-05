@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from database import DATABASE_URL, create_db_and_tables, engine
 from models import (
+    AuthUser,
     Candidate,
     Company,
     InterviewMessage,
@@ -20,11 +21,14 @@ from models import (
     Role,
     Swipe,
     SwipeDirection,
+    UserRole,
 )
+from services.auth_service import hash_password
 from services.resume_service import SKILL_VOCABULARY
 
 DEMO_MARKER = "[Pomelo demo seed]"
 DEMO_EMAIL_DOMAIN = "@demo.pomelo.test"
+DEMO_PASSWORD = "pomelo2026"
 UTC = timezone.utc
 BASE_TIME = datetime(2026, 4, 2, 14, 0, tzinfo=UTC)
 
@@ -1027,6 +1031,7 @@ def reset_demo_data(session: Session) -> dict[str, int]:
         "deleted_messages": _delete_ids(session, InterviewMessage, "match_id", demo_match_ids),
         "deleted_matches": _delete_ids(session, Match, "id", demo_match_ids),
         "deleted_swipes": _delete_swipes(session, demo_candidate_ids, demo_role_ids),
+        "deleted_auth_users": _delete_demo_auth_users(session),
         "deleted_roles": _delete_ids(session, Role, "id", demo_role_ids),
         "deleted_candidates": _delete_ids(session, Candidate, "id", demo_candidate_ids),
         "deleted_companies": _delete_ids(session, Company, "id", demo_company_ids),
@@ -1136,6 +1141,37 @@ def seed_demo_data(session: Session) -> dict[str, int]:
         )
         session.add(message)
 
+    # ----- demo auth users -----
+    hashed = hash_password(DEMO_PASSWORD)
+    demo_auth_users = [
+        AuthUser(
+            email="mira.patel@demo.pomelo.test",
+            hashed_password=hashed,
+            role=UserRole.candidate,
+            candidate_id=candidates_by_alias["mira_patel"].id,
+        ),
+        AuthUser(
+            email="alex.rivera@demo.pomelo.test",
+            hashed_password=hashed,
+            role=UserRole.candidate,
+            candidate_id=candidates_by_alias["alex_rivera"].id,
+        ),
+        AuthUser(
+            email="recruiter@openai.demo.pomelo.test",
+            hashed_password=hashed,
+            role=UserRole.recruiter,
+            company_id=companies_by_alias["openai"].id,
+        ),
+        AuthUser(
+            email="recruiter@goldman.demo.pomelo.test",
+            hashed_password=hashed,
+            role=UserRole.recruiter,
+            company_id=companies_by_alias["goldman"].id,
+        ),
+    ]
+    for auth_user in demo_auth_users:
+        session.add(auth_user)
+
     session.commit()
 
     return {
@@ -1145,6 +1181,7 @@ def seed_demo_data(session: Session) -> dict[str, int]:
         "seeded_swipes": len(swipes_by_key),
         "seeded_matches": len(matches_by_key),
         "seeded_messages": len(INTERVIEW_MESSAGES),
+        "seeded_auth_users": len(demo_auth_users),
     }
 
 
@@ -1166,6 +1203,13 @@ def _delete_ids(session: Session, model: type, field_name: str, ids: Iterable[in
     if not ids:
         return 0
     result = session.exec(sa.delete(model).where(getattr(model, field_name).in_(ids)))
+    return result.rowcount or 0
+
+
+def _delete_demo_auth_users(session: Session) -> int:
+    result = session.exec(
+        sa.delete(AuthUser).where(AuthUser.email.like("%demo.pomelo.test"))
+    )
     return result.rowcount or 0
 
 

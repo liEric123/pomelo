@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import create_db_and_tables
+from routes.auth import router as auth_router
 from routes.candidate import router as candidate_router
 from routes.swipe import router as swipe_router
 from routes.recruiter import router as recruiter_router
@@ -26,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/api")
 app.include_router(candidate_router, prefix="/api")
 app.include_router(swipe_router, prefix="/api")
 app.include_router(recruiter_router, prefix="/api")

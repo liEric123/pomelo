@@ -20,8 +20,9 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from models import Candidate, Company, InterviewMessage, Match, MatchStatus, MessageRole, Role, Swipe, SwipeDirection
+from models import AuthUser, Candidate, Company, InterviewMessage, Match, MatchStatus, MessageRole, Role, Swipe, SwipeDirection, UserRole
 import services.comparison_service as comparison_service
+from services.auth_service import default_candidate_password, hash_password
 from utils.resume_parser import extract_text
 from services.scoring_service import grade_resume, keyword_match as _keyword_match
 from services.resume_service import generate_skill_vector, zero_skill_vector
@@ -96,6 +97,7 @@ def register_candidate(
     email: str,
     file_bytes: bytes,
     filename: str,
+    password: str | None,
     session: Session,
 ) -> dict:
     """Orchestrate full candidate registration flow.
@@ -154,8 +156,18 @@ def register_candidate(
         resume_score=brs / 100.0,  # normalize BRS 1-100 → 0-1 for internal use
         embedding=skill_vector,
     )
-    session.add(candidate)
     try:
+        session.add(candidate)
+        session.flush()
+
+        auth_password = password.strip() if password and password.strip() else default_candidate_password()
+        auth_user = AuthUser(
+            email=email,
+            hashed_password=hash_password(auth_password),
+            role=UserRole.candidate,
+            candidate_id=candidate.id,
+        )
+        session.add(auth_user)
         session.commit()
     except IntegrityError as e:
         session.rollback()

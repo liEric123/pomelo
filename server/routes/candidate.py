@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Form, UploadFile, File, HTTPException
 from sqlmodel import Session
 
 from database import get_session
+from models import AuthUser
+from services.auth_service import require_candidate
 from services.hiring_coordinator import (
     register_candidate as _register_candidate,
     get_candidate_feed as _get_candidate_feed,
@@ -21,6 +23,7 @@ async def register_candidate(
     name: str = Form(...),
     email: str = Form(...),
     resume: UploadFile = File(...),
+    password: str | None = Form(None),
     session: Session = Depends(get_session),
 ):
     """Register a new candidate by uploading their resume.
@@ -29,7 +32,7 @@ async def register_candidate(
     """
     file_bytes = await resume.read()
     try:
-        return _register_candidate(name, email, file_bytes, resume.filename or "", session)
+        return _register_candidate(name, email, file_bytes, resume.filename or "", password, session)
     except DuplicateEmailError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except UnsupportedFileError as e:
@@ -44,12 +47,15 @@ async def register_candidate(
 def get_candidate_feed(
     candidate_id: int,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_candidate),
 ):
     """Return up to 20 roles ranked by skill match for the candidate's swipe feed.
 
     Each item includes match_percent (0-100) derived from cosine similarity.
     Excludes roles already swiped and roles outside the candidate's score range.
     """
+    if user.candidate_id != candidate_id:
+        raise HTTPException(status_code=403, detail="Access denied.")
     try:
         return _get_candidate_feed(candidate_id, session)
     except NotFoundError as e:
@@ -60,12 +66,15 @@ def get_candidate_feed(
 def get_candidate_matches(
     candidate_id: int,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_candidate),
 ):
     """Return all matches for a candidate, newest first.
 
     Each item includes role title, company name, match status, and
     interview outcome (final_score, recommendation) when completed.
     """
+    if user.candidate_id != candidate_id:
+        raise HTTPException(status_code=403, detail="Access denied.")
     try:
         return _get_candidate_matches(candidate_id, session)
     except NotFoundError as e:

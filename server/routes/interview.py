@@ -18,7 +18,14 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from database import get_session
+from models import AuthUser, UserRole
 from services import interview_session as session_mgr
+from services.auth_service import (
+    ensure_candidate_match_access,
+    ensure_recruiter_match_access,
+    get_user_from_token,
+    require_recruiter,
+)
 from services.followup_service import generate_followup
 from services.hiring_coordinator import (
     AnswerResult,
@@ -56,6 +63,31 @@ async def interview_websocket(
       {"type": "error",             "detail": str}
     """
     await websocket.accept()
+
+    raw_token = websocket.query_params.get("token")
+    if not raw_token:
+        await websocket.send_json({"type": "error", "detail": "Authentication required."})
+        await websocket.close(code=4401)
+        return
+
+    try:
+        user = get_user_from_token(raw_token, db)
+    except HTTPException as exc:
+        await websocket.send_json({"type": "error", "detail": exc.detail})
+        await websocket.close(code=4401)
+        return
+
+    if user.role != UserRole.candidate:
+        await websocket.send_json({"type": "error", "detail": "Candidate access required."})
+        await websocket.close(code=4003)
+        return
+
+    try:
+        ensure_candidate_match_access(match_id, user, db)
+    except HTTPException as exc:
+        await websocket.send_json({"type": "error", "detail": exc.detail})
+        await websocket.close(code=4003 if exc.status_code == 403 else 4004)
+        return
 
     # ----- initialize session -----
     try:
@@ -186,6 +218,7 @@ def inject_question(
     match_id: int,
     body: InjectRequest,
     session: Session = Depends(get_session),
+    user: AuthUser = Depends(require_recruiter),
 ):
     """Queue a recruiter-injected follow-up question for the active interview.
 
@@ -194,6 +227,7 @@ def inject_question(
     """
     if not body.question_text.strip():
         raise HTTPException(status_code=400, detail="question_text must not be empty.")
+    ensure_recruiter_match_access(match_id, user, session)
     try:
         inject_recruiter_question(match_id, body.question_text.strip())
     except NotFoundError as e:
@@ -206,7 +240,11 @@ def inject_question(
 # ---------------------------------------------------------------------------
 
 @router.get("/{match_id}/stream")
-async def interview_stream(match_id: int):
+async def interview_stream(
+    match_id: int,
+    user: AuthUser = Depends(require_recruiter),
+    session: Session = Depends(get_session),
+):
     """SSE stream for the recruiter's live interview dashboard.
 
     Event types:
@@ -216,6 +254,7 @@ async def interview_stream(match_id: int):
       frame              {"data": "<base64>"}
       interview_complete {"summary": {...}}
     """
+    ensure_recruiter_match_access(match_id, user, session)
     # Pre-create queue so the recruiter can connect before the candidate
     q = session_mgr.ensure_sse_queue(match_id)
 
