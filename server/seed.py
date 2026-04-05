@@ -743,48 +743,12 @@ MATCHES = [
     {
         "candidate_alias": "alex_rivera",
         "role_alias": "openai_applied_ai",
-        "status": MatchStatus.completed,
+        "status": MatchStatus.interviewing,
         "matched_at": BASE_TIME - timedelta(days=2),
-        "completed_at": BASE_TIME - timedelta(days=1, hours=20),
-        "final_score": 0.81,
-        "recommendation": "advance",
-        "interview_summary": json.dumps(
-            {
-                "behavioral_score": 0.83,
-                "communication_score": 0.84,
-                "concerns": [
-                    "Has shipped product features around AI-adjacent workflows, but direct model evaluation depth is still lighter than his core full-stack experience.",
-                    "Some answers emphasized practical product instincts over formal experimentation frameworks and benchmarking rigor.",
-                ],
-                "confidence": 0.79,
-                "flags_summary": [],
-                "interviewer_notes": {
-                    "do_not_ask_again": [
-                        "Cross-functional rollout ownership",
-                        "Production debugging under time pressure",
-                    ],
-                    "suggested_opener": (
-                        "Ask Alex to design an evaluation loop for an LLM feature where product quality and latency both matter."
-                    ),
-                    "topics_to_probe": [
-                        "How he would structure offline versus online evaluation for a new AI workflow",
-                        "Where he would want support from ML specialists versus owning implementation himself",
-                    ],
-                },
-                "one_liner": (
-                    "Strong product-minded engineer with credible applied-AI adjacency and the delivery maturity to ramp quickly in an Applied AI role."
-                ),
-                "scores_weighted": 0.81,
-                "strengths": [
-                    "Clear ownership of end-to-end product delivery across API, data, and frontend layers",
-                    "Strong communication and pragmatic debugging instincts grounded in real production work",
-                    "Good judgment about rollout trust, instrumentation, and user-facing quality signals",
-                ],
-                "technical_score": 0.79,
-                "verdict": "ADVANCE",
-            },
-            sort_keys=True,
-        ),
+        "completed_at": None,
+        "final_score": None,
+        "recommendation": None,
+        "interview_summary": None,
     },
     {
         "candidate_alias": "alex_rivera",
