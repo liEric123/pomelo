@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { CustomDropdown } from '../components/custom-dropdown'
 import { useAuth } from '../contexts/auth-context'
 import { apiFetch } from '../lib/api'
 import { subscribeDashboard } from '../lib/sse'
@@ -435,6 +436,17 @@ export function RecruiterDashboardPage() {
         ? roleOptions[0].id
         : null
       : Number.parseInt(selectedRoleId, 10)
+
+  const filterOptions = useMemo(
+    () => [
+      { value: 'all', label: 'All roles' },
+      ...roleOptions.map((role) => ({
+        value: String(role.id),
+        label: `${role.label} (${role.count})`,
+      })),
+    ],
+    [roleOptions],
+  )
 
   const activeMatchIds = useMemo(
     () =>
@@ -954,21 +966,14 @@ export function RecruiterDashboardPage() {
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
             <label className="flex min-w-[220px] flex-col gap-2">
               <span className="type-label">Filter by role</span>
-              <select
+              <CustomDropdown
                 value={selectedRoleId}
-                onChange={(event) => {
-                  setSelectedRoleId(event.target.value)
+                options={filterOptions}
+                onChange={(value) => {
+                  setSelectedRoleId(value)
                   setCompareError(null)
                 }}
-                className="font-ui rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-textPrimary outline-none transition focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20"
-              >
-                <option value="all">All roles</option>
-                {roleOptions.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.label} ({role.count})
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <div className="flex items-end gap-3">

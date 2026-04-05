@@ -386,7 +386,7 @@ export function CandidateSignupPage() {
           role feed.
         </p>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <div className="rounded-3xl border border-border bg-surface p-5">
             <p className="type-meta">Accepted files</p>
             <p className="type-stat mt-3">
@@ -396,12 +396,6 @@ export function CandidateSignupPage() {
           <div className="rounded-3xl border border-border bg-surface p-5">
             <p className="type-meta">Max file size</p>
             <p className="type-stat mt-3">5MB</p>
-          </div>
-          <div className="rounded-3xl border border-border bg-surface p-5">
-            <p className="type-meta">Outcome</p>
-            <p className="type-stat mt-3">
-              Score, summary, skills
-            </p>
           </div>
         </div>
       </div>
