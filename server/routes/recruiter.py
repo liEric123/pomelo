@@ -88,6 +88,8 @@ def list_roles(
         return _list_roles(company_id=company_id, session=session)
     except RecruiterRoleValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except RecruiterCompanyNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------

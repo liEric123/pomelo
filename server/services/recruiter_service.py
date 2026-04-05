@@ -44,8 +44,8 @@ def create_role(
         raise RecruiterRoleValidationError("Min and max score must be between 0.0 and 1.0.")
     if min_score > max_score:
         raise RecruiterRoleValidationError("Min score cannot be greater than max score.")
-    if len(normalized_questions) < 6:
-        raise RecruiterRoleValidationError("At least 6 questions are required for each role.")
+    # questions are optional at creation time — the interview system falls back
+    # to the question bank when role.questions is empty.
 
     company = session.get(Company, company_id)
     if not company:
@@ -72,20 +72,43 @@ def create_role(
             "We could not save that role. Please verify the company and try again."
         ) from exc
     session.refresh(role)
-    return role
+    return _role_dict(role, company.name)
 
 
-def list_roles(*, company_id: int, session: Session) -> list[Role]:
+def list_roles(*, company_id: int, session: Session) -> list[dict]:
     """List active roles for a company, newest first."""
     if company_id <= 0:
         raise RecruiterRoleValidationError("Company ID must be a positive integer.")
+
+    company = session.get(Company, company_id)
+    if not company:
+        raise RecruiterCompanyNotFoundError(f"Company {company_id} not found.")
 
     statement = (
         select(Role)
         .where(Role.company_id == company_id, Role.is_active == True)  # noqa: E712
         .order_by(Role.created_at.desc())
     )
-    return list(session.exec(statement).all())
+    roles = session.exec(statement).all()
+    return [_role_dict(r, company.name) for r in roles]
+
+
+def _role_dict(role: Role, company_name: str) -> dict:
+    return {
+        "role_id": role.id,
+        "company_id": role.company_id,
+        "company_name": company_name,
+        "title": role.title,
+        "description": role.description,
+        "location": role.location,
+        "is_remote": role.is_remote,
+        "min_score": role.min_score,
+        "max_score": role.max_score,
+        "keywords": role.keywords,
+        "questions": role.questions,
+        "is_active": role.is_active,
+        "created_at": role.created_at.isoformat(),
+    }
 
 
 def _normalize_text_list(values: list[str]) -> list[str]:
