@@ -1,9 +1,15 @@
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 from sqlmodel import Session
 from typing import Optional
 
 from database import get_session
+from services.recruiter_service import (
+    RecruiterCompanyNotFoundError,
+    RecruiterRoleValidationError,
+    create_role as _create_role,
+    list_roles as _list_roles,
+)
 
 router = APIRouter(prefix="/recruiter", tags=["recruiter"])
 
@@ -18,17 +24,33 @@ class RoleCreate(BaseModel):
     is_remote: bool = False
     min_score: float = 0.0
     max_score: float = 1.0
-    keywords: list[str] = []
-    questions: list[str] = []
+    keywords: list[str] = Field(default_factory=list)
+    questions: list[str] = Field(default_factory=list)
 
 
-@router.post("/roles")
+@router.post("/roles", status_code=201)
 def create_role(
     body: RoleCreate,
     session: Session = Depends(get_session),
 ):
     """Create a new role. keywords and questions are recruiter-defined."""
-    pass
+    try:
+        return _create_role(
+            company_id=body.company_id,
+            title=body.title,
+            description=body.description,
+            location=body.location,
+            is_remote=body.is_remote,
+            min_score=body.min_score,
+            max_score=body.max_score,
+            keywords=body.keywords,
+            questions=body.questions,
+            session=session,
+        )
+    except RecruiterRoleValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RecruiterCompanyNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
 
 
 @router.get("/roles")
@@ -37,7 +59,10 @@ def list_roles(
     session: Session = Depends(get_session),
 ):
     """List all active roles for a company."""
-    pass
+    try:
+        return _list_roles(company_id=company_id, session=session)
+    except RecruiterRoleValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # --- Candidate review ---

@@ -1,6 +1,10 @@
 import { createRef, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import TinderCard from 'react-tinder-card'
+import type {
+  SwipeDirection as TinderSwipeDirection,
+  TinderCardHandle,
+} from '../components/tinder-card'
+import TinderCard from '../components/tinder-card'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { getStoredCandidateId } from '../lib/candidate-session'
@@ -21,12 +25,9 @@ type SwipeResponse = {
   match_id?: number
 }
 
-type SwipeDirection = 'left' | 'right'
+type SwipeDirection = Extract<TinderSwipeDirection, 'left' | 'right'>
 type SwipeIntent = 'pass' | 'like'
-type TinderCardApi = {
-  swipe: (dir?: SwipeDirection) => Promise<void>
-  restoreCard: () => Promise<void>
-}
+type TinderCardApi = TinderCardHandle
 
 function formatMatchPercent(value: number) {
   return Math.round(Math.max(0, Math.min(100, value)))
@@ -295,9 +296,11 @@ export function CandidateFeedPage() {
                 key={role.role_id}
                 ref={refs.current[index]}
                 preventSwipe={['up', 'down']}
-                onSwipe={(direction) =>
-                  void handleSwipe(direction as SwipeDirection, role)
-                }
+                onSwipe={(direction) => {
+                  if (direction === 'left' || direction === 'right') {
+                    void handleSwipe(direction, role)
+                  }
+                }}
                 onCardLeftScreen={() => handleCardLeftScreen(index)}
                 className="absolute inset-0"
               >
