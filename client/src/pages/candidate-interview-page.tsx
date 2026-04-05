@@ -138,6 +138,8 @@ export function CandidateInterviewPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [notesDraft, setNotesDraft] = useState('')
+  // speechTranscript is the locked transcript captured from voice — not editable
+  const [speechTranscript, setSpeechTranscript] = useState('')
   const [micStatus, setMicStatus] = useState<MicStatus>('pending')
   const [liveTranscript, setLiveTranscript] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -155,6 +157,7 @@ export function CandidateInterviewPage() {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const finalTranscriptRef = useRef('')
   const liveTranscriptRef = useRef('')
+  const speechTranscriptRef = useRef('')
   const isRecognizingRef = useRef(false)
 
   const questionCounterText = useMemo(
@@ -184,9 +187,11 @@ export function CandidateInterviewPage() {
   function activatePrompt(nextPrompt: InterviewPrompt) {
     setCurrentPrompt(nextPrompt)
     setNotesDraft('')
+    setSpeechTranscript('')
     setLiveTranscript('')
     finalTranscriptRef.current = ''
     liveTranscriptRef.current = ''
+    speechTranscriptRef.current = ''
     setQuestionCount(nextPrompt.index + 1)
     setQuestionTotal((currentTotal) =>
       Math.max(currentTotal, nextPrompt.index + 1, DEFAULT_TOTAL_QUESTIONS),
@@ -225,11 +230,10 @@ export function CandidateInterviewPage() {
       ? Math.max(1, Math.round((Date.now() - responseStartedAtRef.current) / 1000))
       : 0
 
-    // Pre-populate the notes area with the live speech transcript
+    // Lock the speech transcript — it is read-only in the notes phase
     const transcript = liveTranscriptRef.current.trim()
-    if (transcript) {
-      setNotesDraft(transcript)
-    }
+    speechTranscriptRef.current = transcript
+    setSpeechTranscript(transcript)
 
     setPhase('notes')
     setSecondsRemaining(NOTES_DURATION_SECONDS)
@@ -257,6 +261,8 @@ export function CandidateInterviewPage() {
     elapsedSecondsRef.current = 0
     setWebsocketError(null)
     setNotesDraft('')
+    setSpeechTranscript('')
+    speechTranscriptRef.current = ''
     beginBreak()
     return true
   }, [beginBreak, trySendSocketMessage])
@@ -540,7 +546,7 @@ export function CandidateInterviewPage() {
         }
 
         if (phase === 'notes') {
-          finishNotes(notesDraftRef.current)
+          finishNotes(speechTranscriptRef.current || notesDraftRef.current)
           return BREAK_DURATION_SECONDS
         }
 
@@ -620,7 +626,7 @@ export function CandidateInterviewPage() {
             ? 'Transcript unavailable'
             : 'Mic pending'
 
-  const hasTranscriptInNotes = phase === 'notes' && notesDraft.trim().length > 0
+  const hasLockedTranscript = phase === 'notes' && speechTranscript.trim().length > 0
 
   return (
     <section className="mx-auto flex h-[calc(100svh-2rem)] min-h-0 max-w-7xl">
@@ -741,51 +747,88 @@ export function CandidateInterviewPage() {
               {phase === 'notes' ? (
                 <div className="border-t border-border/80 pt-5">
                   <div className="rounded-[1.45rem] border border-accentPrimary/30 bg-accentPrimary/6 px-5 py-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-ui text-sm font-semibold text-textPrimary">
-                          {hasTranscriptInNotes ? 'Spoken response' : 'Post-answer notes'}
-                        </p>
-                        <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
-                          {hasTranscriptInNotes
-                            ? 'Pomelo transcribed your spoken response. Edit or add to it before submitting.'
-                            : 'Jot down key examples, metrics, or context from your answer. This helps the AI grade accurately and gives the recruiter more signal.'}
-                        </p>
-                      </div>
-                      <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
-                        {notesDraft.trim().length} chars
-                      </span>
-                    </div>
+                    {hasLockedTranscript ? (
+                      <>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-ui text-sm font-semibold text-textPrimary">
+                              Spoken response
+                            </p>
+                            <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
+                              Pomelo transcribed your spoken response. This is what will be submitted.
+                            </p>
+                          </div>
+                          <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
+                            {speechTranscript.trim().length} chars
+                          </span>
+                        </div>
 
-                    <textarea
-                      // eslint-disable-next-line jsx-a11y/no-autofocus
-                      autoFocus
-                      value={notesDraft}
-                      onChange={(event) => setNotesDraft(event.target.value)}
-                      placeholder={
-                        hasTranscriptInNotes
-                          ? ''
-                          : 'e.g. Led migration of 3 services to Kubernetes — reduced deploy time by 40%. Talked about the rollback strategy and tradeoffs...'
-                      }
-                      className="font-ui mt-4 min-h-[140px] w-full rounded-[1.35rem] border border-border bg-surface px-4 py-3 text-sm leading-6 text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20"
-                    />
+                        {/* Read-only transcript display */}
+                        <div className="font-ui mt-4 min-h-[140px] w-full rounded-[1.35rem] border border-border bg-surface/60 px-4 py-3 text-sm leading-6 text-textPrimary select-none cursor-default">
+                          {speechTranscript}
+                        </div>
 
-                    <div className="mt-4 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => finishNotes(notesDraft)}
-                        className="font-ui inline-flex flex-1 items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
-                      >
-                        Submit notes
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => finishNotes('')}
-                        className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
-                      >
-                        Skip
-                      </button>
-                    </div>
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => finishNotes(speechTranscript)}
+                            className="font-ui inline-flex flex-1 items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                          >
+                            Submit response
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => finishNotes('')}
+                            className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-ui text-sm font-semibold text-textPrimary">
+                              Post-answer notes
+                            </p>
+                            <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
+                              Jot down key examples, metrics, or context from your answer. This helps
+                              the AI grade accurately and gives the recruiter more signal.
+                            </p>
+                          </div>
+                          <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
+                            {notesDraft.trim().length} chars
+                          </span>
+                        </div>
+
+                        <textarea
+                          // eslint-disable-next-line jsx-a11y/no-autofocus
+                          autoFocus
+                          value={notesDraft}
+                          onChange={(event) => setNotesDraft(event.target.value)}
+                          placeholder="e.g. Led migration of 3 services to Kubernetes — reduced deploy time by 40%. Talked about the rollback strategy and tradeoffs..."
+                          className="font-ui mt-4 min-h-[140px] w-full rounded-[1.35rem] border border-border bg-surface px-4 py-3 text-sm leading-6 text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20"
+                        />
+
+                        <div className="mt-4 flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => finishNotes(notesDraft)}
+                            className="font-ui inline-flex flex-1 items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                          >
+                            Submit notes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => finishNotes('')}
+                            className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+                          >
+                            Skip
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -866,7 +909,7 @@ export function CandidateInterviewPage() {
                 <button
                   type="button"
                   onClick={
-                    phase === 'notes' ? () => finishNotes(notesDraft) : finishRecording
+                    phase === 'notes' ? () => finishNotes(speechTranscript || notesDraft) : finishRecording
                   }
                   disabled={phase !== 'recording' && phase !== 'notes'}
                   className="font-ui mt-4 inline-flex w-full items-center justify-center rounded-[1rem] border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover disabled:cursor-not-allowed disabled:opacity-60"
