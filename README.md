@@ -21,7 +21,7 @@ Pomelo helps fix that with signal compression across the funnel, turning noisy c
 - A FastAPI backend with service-based architecture
 - Resume upload and AI scoring
 - A swipe-based candidate feed
-- Live interview flow over WebSocket
+- Live interview flow over WebSocket with voice support TTS transcription
 - Recruiter live dashboard over SSE
 - Recruiter question injection during interviews
 - Candidate comparison support for shortlist decisions
@@ -80,3 +80,4 @@ As Pomelo grows, the next areas of investment are:
 - More advanced AI reasoning for deeper, more nuanced candidate analysis
 - Richer feedback for candidates so they can understand how they performed and improve
 - A system to track candidate performance over time across applications and interviews
+- Cheat detection to flag suspicious behavior during interviews
