@@ -5,9 +5,9 @@ REQUIRED SKILLS: {keywords}
 INTERVIEWER-SELECTED QUESTION SET: {selected_question_set}
 CANDIDATE BACKGROUND: {candidate_background}
 
-Generate 8 questions with this mix:
-- 6 behavioral questions (75%): past experience, conflict resolution, leadership, failure/growth, teamwork, time management. Use the STAR format expectation (Situation, Task, Action, Result).
-- 2 technical explanation questions (25%): ask the candidate to either explain a technical concept relevant to the role in plain English OR walk through pseudocode for a relevant problem. These should test understanding, not syntax.
+Generate 4 questions with this mix:
+- 3 behavioral questions (75%): past experience, conflict resolution, leadership, failure/growth, teamwork, time management. Use the STAR format expectation (Situation, Task, Action, Result).
+- 1 technical explanation question (25%): ask the candidate to either explain a technical concept relevant to the role in plain English OR walk through pseudocode for a relevant problem. This should test understanding, not syntax.
 
 Constraints:
 - Only generate questions that come from or are clearly grounded in the interviewer-selected question set. Do not invent unrelated topics.

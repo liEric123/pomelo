@@ -26,7 +26,7 @@ def generate_simul_questions(
     selected_question_set: str,
     candidate_background: str,
 ) -> list[dict]:
-    """Generate 8 AI simulation interview questions (6 behavioral + 2 technical_explain).
+    """Generate 4 AI simulation interview questions (3 behavioral + 1 technical_explain).
 
     selected_question_set: formatted string of questions the recruiter has chosen.
     candidate_background: candidate summary + top skills as a formatted string.

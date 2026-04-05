@@ -802,7 +802,7 @@ def _generate_questions(role: Role, candidate: Candidate, company_name: str) -> 
         bank_path = _question_bank_path()
         with open(bank_path, encoding="utf-8") as f:
             bank = json.load(f)
-        sample = random.sample(bank["questions"], min(8, len(bank["questions"])))
+        sample = random.sample(bank["questions"], min(4, len(bank["questions"])))
         selected_set = "\n".join(f"- {q['question']}" for q in sample)
 
     candidate_background = (
