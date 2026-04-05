@@ -4,7 +4,7 @@ Interview routes: candidate WebSocket, recruiter SSE stream, recruiter question 
 Route responsibilities:
   - Accept/validate connections
   - Drive the WebSocket message loop
-  - Delegate persistence and AI calls to coordinator and services
+  - Delegate all business logic to hiring_coordinator
   - Map domain exceptions to HTTP/WS error codes
 """
 
@@ -18,17 +18,17 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from database import get_session
-from models import InterviewMessage, MessageRole
 from services import interview_session as session_mgr
-from services.grading_service import grade_answer
+from services.followup_service import generate_followup
 from services.hiring_coordinator import (
+    AnswerResult,
+    process_interview_answer,
+    inject_recruiter_question,
     start_interview,
-    complete_interview,
     InvalidInterviewState,
     NotFoundError,
     AIServiceError,
 )
-from services.followup_service import generate_followup
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
 
@@ -59,7 +59,7 @@ async def interview_websocket(
 
     # ----- initialize session -----
     try:
-        first_q = await asyncio.to_thread(start_interview, match_id, db)
+        opening_message = await asyncio.to_thread(start_interview, match_id, db)
     except NotFoundError as e:
         await websocket.send_json({"type": "error", "detail": str(e)})
         await websocket.close(code=4004)
@@ -73,12 +73,15 @@ async def interview_websocket(
         await websocket.close(code=4502)
         return
 
-    await websocket.send_json({"type": "question", **first_q})
-    await session_mgr.emit_event(match_id, "transcript", {
-        "question_id": first_q["id"], "text": first_q["text"], "role": "question",
-    })
-
-    sess = session_mgr.get_session(match_id)
+    emit_transcript = opening_message.pop("emit_transcript", False)
+    await websocket.send_json(opening_message)
+    if emit_transcript:
+        role = "question" if opening_message["type"] == "question" else "follow_up"
+        await session_mgr.emit_event(match_id, "transcript", {
+            "question_id": opening_message.get("id"),
+            "text": opening_message["text"],
+            "role": role,
+        })
 
     # ----- message loop -----
     try:
@@ -93,8 +96,8 @@ async def interview_websocket(
             msg_type = msg.get("type")
 
             if msg_type == "answer":
-                await _handle_answer(websocket, db, match_id, sess, msg)
-                if sess.is_complete:
+                done = await _handle_answer(websocket, db, match_id, msg)
+                if done:
                     break
 
             elif msg_type == "frame":
@@ -112,136 +115,37 @@ async def _handle_answer(
     websocket: WebSocket,
     db: Session,
     match_id: int,
-    sess: session_mgr.InterviewSession,
     msg: dict,
-) -> None:
-    """Process one candidate answer: persist, grade, emit, advance."""
+) -> bool:
+    """Delegate answer processing to the coordinator and send the resulting WS message.
+
+    Returns True when the interview is complete and the loop should exit.
+    """
     answer_text: str = msg.get("text", "").strip()
     elapsed: int = int(msg.get("elapsed_seconds", 0))
 
-    # Which question is being answered?
-    if sess.awaiting_injected:
-        # Answering a recruiter-injected follow-up — use stored question text for grading
-        current_q = {
-            "id": "injected",
-            "text": sess.current_injected_question,
-            "category": "follow_up",
-            "expected_signals": [],
-        }
-        q_index = None
-    else:
-        q_index = sess.current_index
-        current_q = sess.questions[q_index]
-
-    # Persist answer
-    answer_msg = InterviewMessage(
-        match_id=match_id,
-        role=MessageRole.answer,
-        content=answer_text,
-        question_index=q_index,
-        recruiter_injected=sess.awaiting_injected,
-    )
-    db.add(answer_msg)
-    db.commit()
-    db.refresh(answer_msg)
-
-    # Grade (run in thread — synchronous Anthropic call)
-    role = sess.role
     try:
-        grade = await asyncio.to_thread(
-            grade_answer,
-            role_title=role.title,
-            company_name=sess.company_name,
-            category=current_q["category"],
-            question_text=current_q["text"] or answer_text,
-            expected_signals=", ".join(current_q.get("expected_signals") or []),
-            candidate_answer=answer_text,
-            seconds=elapsed,
-            max_seconds=session_mgr.MAX_SECONDS_PER_ANSWER,
-        )
-    except Exception as e:
-        grade = {"score": 0.0, "rationale": str(e), "flag": None, "recruiter_hint": "Grading failed."}
+        result: AnswerResult = await process_interview_answer(match_id, answer_text, elapsed, db)
+    except InvalidInterviewState as e:
+        await websocket.send_json({"type": "error", "detail": str(e)})
+        return False
 
-    # Update answer message with grade
-    flags = [grade["flag"]] if grade.get("flag") else []
-    answer_msg.score = grade.get("score", 0.0)
-    answer_msg.score_label = _score_label(grade.get("score", 0.0))
-    answer_msg.flags = flags
-    answer_msg.grade_reasoning = grade.get("rationale")
-    db.add(answer_msg)
-    db.commit()
-
-    # Record timing
-    sess.elapsed_times.append(elapsed)
-
-    # Emit to recruiter
-    await session_mgr.emit_event(match_id, "transcript", {
-        "question_id": current_q["id"], "text": answer_text, "role": "answer",
-    })
-    await session_mgr.emit_event(match_id, "score", {
-        "question_id": current_q["id"],
-        "score": grade.get("score"),
-        "flag": grade.get("flag"),
-        "recruiter_hint": grade.get("recruiter_hint"),
-    })
-
-    # Background follow-up suggestion (non-blocking)
+    # Fire background follow-up suggestion — never blocks the candidate
     asyncio.create_task(
-        _suggest_followup_background(match_id, current_q, answer_text, grade)
+        _suggest_followup_background(match_id, result.graded_question, answer_text, result.grade)
     )
 
-    # Decide what to send next
-    if sess.awaiting_injected:
-        # Just finished an injected question — go back to normal flow
-        sess.awaiting_injected = False
+    if result.next_action == "follow_up":
+        await websocket.send_json({"type": "follow_up", "text": result.follow_up_text})
+        return False
 
-    # Check inject queue before advancing scheduled questions
-    if sess.inject_queue:
-        injected_text = sess.inject_queue.popleft()
-        inject_msg = InterviewMessage(
-            match_id=match_id,
-            role=MessageRole.follow_up,
-            content=injected_text,
-            recruiter_injected=True,
-        )
-        db.add(inject_msg)
-        db.commit()
-        sess.awaiting_injected = True
-        sess.current_injected_question = injected_text
-        await websocket.send_json({"type": "follow_up", "text": injected_text})
-        await session_mgr.emit_event(match_id, "transcript", {
-            "question_id": None, "text": injected_text, "role": "follow_up",
-        })
-        return  # wait for the answer to this injected question
+    if result.next_action == "question":
+        await websocket.send_json({"type": "question", **result.next_question})
+        return False
 
-    # Advance to next scheduled question
-    if not sess.awaiting_injected:
-        sess.current_index += 1
-
-    if sess.current_index < len(sess.questions):
-        next_q = sess.questions[sess.current_index]
-        # Persist the outgoing question message
-        q_msg = InterviewMessage(
-            match_id=match_id,
-            role=MessageRole.question,
-            content=next_q["text"],
-            question_index=sess.current_index,
-        )
-        db.add(q_msg)
-        db.commit()
-        await websocket.send_json({"type": "question", **_question_payload(next_q, sess.current_index)})
-        await session_mgr.emit_event(match_id, "transcript", {
-            "question_id": next_q["id"], "text": next_q["text"], "role": "question",
-        })
-    else:
-        # All questions answered — complete
-        sess.is_complete = True
-        try:
-            summary = await asyncio.to_thread(complete_interview, match_id, db)
-        except AIServiceError:
-            summary = {"verdict": "MAYBE", "one_liner": "Summary generation failed."}
-        await websocket.send_json({"type": "interview_complete"})
-        await session_mgr.emit_event(match_id, "interview_complete", {"summary": summary})
+    # next_action == "complete"
+    await websocket.send_json({"type": "interview_complete"})
+    return True
 
 
 async def _suggest_followup_background(
@@ -250,10 +154,9 @@ async def _suggest_followup_background(
     answer_text: str,
     grade: dict,
 ) -> None:
-    """Generate a follow-up suggestion and emit it to the recruiter as a suggestion event.
+    """Generate a follow-up suggestion and emit it to the recruiter SSE stream.
 
-    The candidate is never blocked waiting for this — it runs as a background task.
-    The recruiter may then inject it via POST /inject if they choose.
+    Best-effort — errors are swallowed so the candidate flow is never affected.
     """
     try:
         suggestion = await asyncio.to_thread(
@@ -266,25 +169,7 @@ async def _suggest_followup_background(
         )
         await session_mgr.emit_event(match_id, "suggestion", {"text": suggestion})
     except Exception:
-        pass  # Follow-up suggestion is best-effort; never surface errors to candidate
-
-
-def _score_label(score: float) -> str:
-    if score >= 0.8:
-        return "strong"
-    if score >= 0.5:
-        return "adequate"
-    return "weak"
-
-
-def _question_payload(q: dict, index: int) -> dict:
-    return {
-        "id": q["id"],
-        "index": index,
-        "text": q["text"],
-        "category": q["category"],
-        "max_seconds": session_mgr.MAX_SECONDS_PER_ANSWER,
-    }
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -309,9 +194,10 @@ def inject_question(
     """
     if not body.question_text.strip():
         raise HTTPException(status_code=400, detail="question_text must not be empty.")
-    ok = session_mgr.push_inject(match_id, body.question_text.strip())
-    if not ok:
-        raise HTTPException(status_code=404, detail=f"No active interview session for match {match_id}.")
+    try:
+        inject_recruiter_question(match_id, body.question_text.strip())
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     return {"queued": True}
 
 
@@ -324,20 +210,14 @@ async def interview_stream(match_id: int):
     """SSE stream for the recruiter's live interview dashboard.
 
     Event types:
-      transcript        {"question_id", "text", "role": "question|answer|follow_up"}
-      score             {"question_id", "score", "flag", "recruiter_hint"}
-      suggestion        {"text"}  — AI-generated follow-up suggestion for recruiter review
-      frame             {"data": "<base64>"}
+      transcript         {"question_id", "text", "role": "question|answer|follow_up"}
+      score              {"question_id", "score", "flag", "recruiter_hint"}
+      suggestion         {"text"}  — AI-generated follow-up suggestion for recruiter review
+      frame              {"data": "<base64>"}
       interview_complete {"summary": {...}}
     """
-    # Create SSE queue now so events aren't missed if recruiter connects early
-    q = session_mgr.get_sse_queue(match_id)
-    if q is None:
-        # Pre-create queue; the candidate WebSocket will also call get_or_create
-        from services.interview_session import _sse_queues
-        import asyncio as _asyncio
-        _sse_queues[match_id] = _asyncio.Queue()
-        q = _sse_queues[match_id]
+    # Pre-create queue so the recruiter can connect before the candidate
+    q = session_mgr.ensure_sse_queue(match_id)
 
     async def event_generator():
         try:
@@ -345,17 +225,15 @@ async def interview_stream(match_id: int):
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=30.0)
                 except asyncio.TimeoutError:
-                    # Send keepalive comment to prevent proxy timeouts
                     yield ": keepalive\n\n"
                     continue
 
-                payload = json.dumps(event)
-                yield f"data: {payload}\n\n"
+                yield f"data: {json.dumps(event)}\n\n"
 
                 if event.get("type") == "interview_complete":
                     break
         finally:
-            session_mgr.remove_sse_queue(match_id)
+            session_mgr.remove_sse_queue(match_id, q)
 
     return StreamingResponse(
         event_generator(),
