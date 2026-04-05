@@ -49,15 +49,9 @@ export function AppLayout() {
   const headerContent = (
     <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 px-4 py-4 shadow-glass sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.32em] text-textSecondary">
+        <div className="flex items-center">
+          <p className="text-xl uppercase tracking-[0.32em] text-textSecondary sm:text-2xl">
             Pomelo
-          </p>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-[2.3rem]">
-            AI-assisted hiring platform
-          </h1>
-          <p className="mt-4 max-w-2xl font-ui text-sm leading-6 text-textSecondary">
-            Structured matching, guided interviews, and recruiter-side live decision support.
           </p>
         </div>
 
