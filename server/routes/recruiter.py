@@ -7,17 +7,8 @@ from database import get_session
 from services.recruiter_service import (
     RecruiterCompanyNotFoundError,
     RecruiterRoleValidationError,
-    get_role_candidates as _get_role_candidates,
-    record_swipe as _record_swipe,
-    screen_candidate_keywords as _screen_candidate_keywords,
-    get_active_interviews as _get_active_interviews,
-    get_role_dashboard as _get_role_dashboard,
-    compare_role_candidates as _compare_role_candidates,
-    NotFoundError,
-    InvalidSwipeError,
-    DuplicateSwipeError,
-    SwipeLimitError,
-    AIServiceError,
+    create_role as _create_role,
+    list_roles as _list_roles,
 )
 
 router = APIRouter(prefix="/recruiter", tags=["recruiter"])
