@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { useAuth } from '../contexts/auth-context'
+
+const POLL_INTERVAL_MS = 12000
 
 type MatchStatus = 'pending' | 'interviewing' | 'completed' | 'rejected'
 
@@ -39,11 +41,11 @@ function getStatusMeta(status: MatchStatus) {
       return {
         label: 'Pending',
         classes: 'border-warning/35 bg-warning/15 text-textPrimary',
-        description: 'Waiting for the recruiter to start your interview.',
+        description: 'Matched — interview will be ready soon.',
       }
     case 'interviewing':
       return {
-        label: 'Interviewing',
+        label: 'Interview ready',
         classes: 'border-info/35 bg-info/15 text-textPrimary',
         description: 'Your interview session is active.',
       }
@@ -70,14 +72,14 @@ function getStatusMeta(status: MatchStatus) {
 
 function getRecommendationDisplay(rec: string | null) {
   if (!rec) return null
-  const normalized = rec.toLowerCase().trim()
-  if (normalized.includes('strong') && normalized.includes('yes')) {
+  const n = rec.toLowerCase().trim()
+  if (n.includes('strong') && n.includes('yes')) {
     return { text: 'Strong yes', classes: 'text-success font-semibold' }
   }
-  if (normalized.includes('yes') || normalized.includes('advance')) {
+  if (n.includes('yes') || n.includes('advance')) {
     return { text: 'Advance', classes: 'text-success font-semibold' }
   }
-  if (normalized.includes('maybe')) {
+  if (n.includes('maybe')) {
     return { text: 'Maybe', classes: 'text-warning font-semibold' }
   }
   return { text: rec, classes: 'text-textPrimary font-semibold' }
@@ -90,8 +92,18 @@ export function CandidateMatchesPage() {
 
   const [matches, setMatches] = useState<CandidateMatch[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Track whether we've ever loaded data so refreshes don't blank the page
+  const hasLoadedRef = useRef(false)
 
+  function parseError(err: unknown) {
+    return err instanceof Error
+      ? (err.message.match(/status \d+(?::\s*)(.*)$/)?.[1]?.trim() ?? err.message)
+      : 'Could not load your matches.'
+  }
+
+  // Initial load — shows full spinner
   useEffect(() => {
     if (!candidateId) {
       setError('No candidate session found.')
@@ -106,16 +118,12 @@ export function CandidateMatchesPage() {
         const data = await apiFetch<CandidateMatch[]>(
           `/api/candidates/${candidateId}/matches`,
         )
-        if (!cancelled) setMatches(data)
-      } catch (err) {
         if (!cancelled) {
-          const detail =
-            err instanceof Error
-              ? err.message.match(/status \d+(?::\s*)(.*)$/)?.[1]?.trim() ??
-                err.message
-              : 'Could not load your matches.'
-          setError(detail)
+          setMatches(data)
+          hasLoadedRef.current = true
         }
+      } catch (err) {
+        if (!cancelled) setError(parseError(err))
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -127,6 +135,42 @@ export function CandidateMatchesPage() {
     }
   }, [candidateId])
 
+  // Background polling — silent, never blanks the page
+  useEffect(() => {
+    if (!candidateId) return
+
+    const id = window.setInterval(async () => {
+      try {
+        const data = await apiFetch<CandidateMatch[]>(
+          `/api/candidates/${candidateId}/matches`,
+        )
+        setMatches(data)
+      } catch {
+        // silent — polling failures don't interrupt the UI
+      }
+    }, POLL_INTERVAL_MS)
+
+    return () => window.clearInterval(id)
+  }, [candidateId])
+
+  // Manual refresh — shows button loading state, surfaces errors
+  async function handleRefresh() {
+    if (!candidateId || isRefreshing) return
+    setIsRefreshing(true)
+    setError(null)
+    try {
+      const data = await apiFetch<CandidateMatch[]>(
+        `/api/candidates/${candidateId}/matches`,
+      )
+      setMatches(data)
+    } catch (err) {
+      setError(parseError(err))
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // ── loading / error / empty ────────────────────────────────────
   if (isLoading) {
     return (
       <section className="mx-auto max-w-3xl p-10 text-center">
@@ -136,12 +180,19 @@ export function CandidateMatchesPage() {
     )
   }
 
-  if (error) {
+  if (error && !hasLoadedRef.current) {
     return (
       <section className="mx-auto max-w-3xl rounded-[2rem] border border-border bg-surface p-10 shadow-panel">
         <p className="type-kicker">Your matches</p>
         <h2 className="type-display-page mt-5">Could not load matches</h2>
         <p className="type-body mt-4">{error}</p>
+        <button
+          type="button"
+          onClick={() => void handleRefresh()}
+          className="font-ui mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+        >
+          Try again
+        </button>
       </section>
     )
   }
@@ -152,15 +203,25 @@ export function CandidateMatchesPage() {
         <p className="type-kicker">Your matches</p>
         <h2 className="type-display-page mt-5">No matches yet</h2>
         <p className="type-body mt-4">
-          Mutual likes become matches. Swipe right on roles you're interested in
-          and check back here once a recruiter likes you back.
+          Mutual likes become matches. Swipe right on roles you&apos;re
+          interested in and check back here once a recruiter likes you back.
         </p>
-        <Link
-          to="/candidate/feed"
-          className="font-ui mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
-        >
-          Browse roles
-        </Link>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link
+            to="/candidate/feed"
+            className="font-ui inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+          >
+            Browse roles
+          </Link>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            className="font-ui inline-flex rounded-full border border-border bg-surfaceAlt px-5 py-3 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12 disabled:opacity-50"
+          >
+            {isRefreshing ? 'Checking…' : 'Check for matches'}
+          </button>
+        </div>
       </section>
     )
   }
@@ -171,14 +232,32 @@ export function CandidateMatchesPage() {
   const completed = matches.filter((m) => m.status === 'completed')
   const rejected = matches.filter((m) => m.status === 'rejected')
 
+  // ── main layout ────────────────────────────────────────────────
   return (
     <section className="mx-auto max-w-4xl space-y-8">
       {/* Header */}
       <div className="rounded-[2rem] border border-border bg-surfaceAlt p-8 shadow-panel">
-        <p className="type-kicker">Your matches</p>
-        <h2 className="type-display-section mt-3">
-          {matches.length} match{matches.length !== 1 ? 'es' : ''} found
-        </h2>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="type-kicker">Your matches</p>
+            <h2 className="type-display-section mt-3">
+              {matches.length} match{matches.length !== 1 ? 'es' : ''} found
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            disabled={isRefreshing}
+            className="font-ui mt-1 inline-flex shrink-0 items-center justify-center rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12 disabled:opacity-50"
+          >
+            {isRefreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
+
+        {error ? (
+          <p className="font-ui mt-4 text-sm text-error">{error}</p>
+        ) : null}
+
         <div className="mt-6 grid grid-cols-3 gap-4">
           <div className="rounded-3xl border border-border bg-surface p-4">
             <p className="type-meta">Active</p>
@@ -202,6 +281,8 @@ export function CandidateMatchesPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {active.map((match) => {
               const status = getStatusMeta(match.status)
+              const canEnter =
+                match.status === 'interviewing' || match.status === 'pending'
               return (
                 <article
                   key={match.match_id}
@@ -228,7 +309,7 @@ export function CandidateMatchesPage() {
                   </p>
 
                   <div className="mt-auto pt-6">
-                    {match.status === 'interviewing' || match.status === 'pending' ? (
+                    {canEnter ? (
                       <button
                         type="button"
                         onClick={() =>
@@ -236,7 +317,9 @@ export function CandidateMatchesPage() {
                         }
                         className="font-ui inline-flex w-full items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
                       >
-                        {match.status === 'interviewing' ? 'Continue interview' : 'Begin interview'}
+                        {match.status === 'interviewing'
+                          ? 'Continue interview'
+                          : 'Begin interview'}
                       </button>
                     ) : (
                       <div className="rounded-2xl border border-border bg-surfaceAlt px-4 py-3">
@@ -261,7 +344,6 @@ export function CandidateMatchesPage() {
             {completed.map((match) => {
               const scoreDisplay = formatScore(match.final_score)
               const rec = getRecommendationDisplay(match.recommendation)
-
               return (
                 <article
                   key={match.match_id}
@@ -281,7 +363,13 @@ export function CandidateMatchesPage() {
                     </span>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3">
+                  {match.completed_at ? (
+                    <p className="font-ui mt-3 text-sm text-textSecondary">
+                      Completed {formatDate(match.completed_at)}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-border bg-surfaceAlt px-4 py-3">
                       <p className="type-meta">Score</p>
                       <p className="font-ui mt-1 text-lg font-semibold text-textPrimary">
@@ -301,12 +389,6 @@ export function CandidateMatchesPage() {
                       )}
                     </div>
                   </div>
-
-                  {match.completed_at ? (
-                    <p className="font-ui mt-4 text-sm text-textSecondary">
-                      Completed {formatDate(match.completed_at)}
-                    </p>
-                  ) : null}
                 </article>
               )
             })}
