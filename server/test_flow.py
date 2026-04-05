@@ -17,8 +17,8 @@ import websockets
 from websockets.exceptions import ConnectionClosed
 
 
-DEFAULT_HTTP_BASE_URL = "http://127.0.0.1:8000"
-DEFAULT_WS_BASE_URL = "ws://127.0.0.1:8000"
+DEFAULT_HTTP_BASE_URL = "http://0.0.0.0:8000"
+DEFAULT_WS_BASE_URL = "ws://0.0.0.0:8000"
 
 
 @dataclass
