@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/auth-context'
 import { API_BASE_URL } from '../lib/api'
 
@@ -7,7 +7,7 @@ const THINKING_DURATION_SECONDS = 20
 const RECORDING_DURATION_SECONDS = 120
 const BREAK_DURATION_SECONDS = 15
 const DEFAULT_TOTAL_QUESTIONS = 4
-const FRAME_CAPTURE_INTERVAL_MS = 200
+const FRAME_CAPTURE_INTERVAL_MS = 5000
 const EMPTY_RESPONSE_FALLBACK =
   'Candidate completed a video response without a written summary.'
 
@@ -385,12 +385,7 @@ export function CandidateInterviewPage() {
   }, [currentPrompt, finishRecording, phase, queuedPrompt])
 
   useEffect(() => {
-    if (
-      (phase !== 'thinking' && phase !== 'recording' && phase !== 'break') ||
-      !cameraReady ||
-      !videoRef.current ||
-      !canvasRef.current
-    ) {
+    if (phase !== 'recording' || !cameraReady || !videoRef.current || !canvasRef.current) {
       return
     }
 
@@ -458,7 +453,7 @@ export function CandidateInterviewPage() {
               </div>
 
               <div className="max-w-4xl pt-1">
-                <h2 className="font-display text-[1.35rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[1.7rem]">
+                <h2 className="font-display text-[1.55rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[2rem]">
                   {currentPrompt?.text ??
                     'Connecting to your interview session and preparing the first question.'}
                 </h2>
@@ -618,13 +613,22 @@ export function CandidateInterviewPage() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={() => navigate('/candidate/matches')}
-                className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
-              >
-                Leave interview
-              </button>
+              {phase === 'completed' ? (
+                <Link
+                  to="/candidate/matches"
+                  className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                >
+                  View your results →
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate('/candidate/matches')}
+                  className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+                >
+                  Leave interview
+                </button>
+              )}
             </div>
           </aside>
         </div>

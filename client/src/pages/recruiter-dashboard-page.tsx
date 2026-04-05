@@ -978,31 +978,54 @@ export function RecruiterDashboardPage() {
                 <div className="border-b border-border px-6 py-4">
                   <p className="type-label mb-3">Active candidates</p>
                   <div className="space-y-2">
-                    {roleDashboard.active.map((c) => (
-                      <div
-                        key={c.match_id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surfaceAlt px-4 py-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-ui text-sm font-semibold text-textPrimary">
-                            {c.name}
-                          </p>
-                          <p className="type-meta mt-0.5">
-                            Matched {formatDate(c.matched_at)}
-                          </p>
+                    {roleDashboard.active.map((c) => {
+                      const panelEl = panelArticleRefs.current[c.match_id]
+                      const isLive = Boolean(panels[c.match_id])
+                      return (
+                        <div
+                          key={c.match_id}
+                          onClick={
+                            panelEl
+                              ? () =>
+                                  panelEl.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'start',
+                                  })
+                              : undefined
+                          }
+                          className={[
+                            'flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surfaceAlt px-4 py-3 transition',
+                            panelEl
+                              ? 'cursor-pointer hover:border-accentSecondary/50 hover:bg-accentSecondary/8'
+                              : '',
+                          ].join(' ')}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-ui text-sm font-semibold text-textPrimary">
+                              {c.name}
+                            </p>
+                            <p className="type-meta mt-0.5">
+                              Matched {formatDate(c.matched_at)}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className="type-badge rounded-full border border-border bg-surface px-3 py-1 text-textPrimary">
+                              {formatPct(c.resume_score_pct)} fit
+                            </span>
+                            <span
+                              className={`type-badge rounded-full border px-3 py-1 ${getStatusBadgeClasses(c.status)}`}
+                            >
+                              {c.status}
+                            </span>
+                            {isLive && panelEl ? (
+                              <span className="type-badge rounded-full border border-info/35 bg-info/15 px-3 py-1 text-textPrimary">
+                                Live ↓
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="type-badge rounded-full border border-border bg-surface px-3 py-1 text-textPrimary">
-                            {formatPct(c.resume_score_pct)} fit
-                          </span>
-                          <span
-                            className={`type-badge rounded-full border px-3 py-1 ${getStatusBadgeClasses(c.status)}`}
-                          >
-                            {c.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}
@@ -1125,10 +1148,10 @@ export function RecruiterDashboardPage() {
                           <div className="flex aspect-[4/5] items-center justify-center px-4 text-center">
                             <div>
                               <p className="font-ui text-sm font-semibold text-textPrimary">
-                                Live video preview
+                                Frame preview
                               </p>
                               <p className="mt-2 text-xs leading-5 text-textSecondary">
-                                Waiting for the live interview preview to begin.
+                                Waiting for the next camera frame from the live interview stream.
                               </p>
                             </div>
                           </div>
@@ -1295,6 +1318,15 @@ export function RecruiterDashboardPage() {
                             {Math.round(panel.summary.confidence * 100)}% confidence
                           </span>
                         ) : null}
+                      </div>
+                      <div className="mt-6">
+                        <button
+                          type="button"
+                          onClick={() => void handleOpenCompare()}
+                          className="font-ui inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                        >
+                          Compare candidates
+                        </button>
                       </div>
                     </div>
                   </div>
