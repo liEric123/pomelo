@@ -295,33 +295,32 @@ CANDIDATES = [
         "name": "Mira Patel",
         "email": "mira.patel@demo.pomelo.test",
         "summary": (
-            "Applied AI engineer with experience shipping evaluation-driven assistant "
-            "features, backend APIs, and model-serving improvements across startup and "
-            "platform environments."
+            "Recent CS grad with a summer internship in applied ML, hands-on coursework "
+            "in deep learning, and personal projects building small AI-powered tools with "
+            "Python and FastAPI."
         ),
         "top_skills": ["Python", "PyTorch", "FastAPI", "TypeScript", "Machine Learning"],
-        "resume_score": 0.92,
+        "resume_score": 0.76,
         "resume_text": (
-            "Mira Patel is a software engineer focused on applied AI products. "
-            "She recently led delivery of a retrieval-augmented assistant for a B2B "
-            "workflow tool, owned Python and FastAPI services, wrote TypeScript feature "
-            "surfaces, and built evaluation dashboards for groundedness and latency. "
-            "Earlier she worked on ML infrastructure, PyTorch experimentation, and prompt "
-            "quality tooling. She enjoys cross-functional work with product, design, and "
-            "safety partners."
+            "Mira Patel graduated last spring with a CS degree focused on machine learning. "
+            "During her junior-year internship she helped build a simple retrieval prototype "
+            "in Python and wrote a few FastAPI endpoints. She has taken two graduate-level ML "
+            "courses, worked through PyTorch tutorials, and built a small personal project "
+            "that uses a language model to summarize notes. She is looking for her first "
+            "full-time role in applied AI."
         ),
         "embedding_skills": {
-            "Python": 0.98,
-            "TypeScript": 0.82,
-            "FastAPI": 0.9,
-            "React": 0.74,
-            "PyTorch": 0.9,
-            "REST API": 0.86,
-            "System Design": 0.77,
-            "Machine Learning": 0.94,
-            "PostgreSQL": 0.55,
-            "AWS": 0.5,
-            "Git": 0.8,
+            "Python": 0.78,
+            "TypeScript": 0.45,
+            "FastAPI": 0.62,
+            "React": 0.38,
+            "PyTorch": 0.65,
+            "REST API": 0.55,
+            "System Design": 0.40,
+            "Machine Learning": 0.72,
+            "PostgreSQL": 0.30,
+            "AWS": 0.25,
+            "Git": 0.60,
         },
         "created_at": BASE_TIME - timedelta(days=16, hours=1),
     },
@@ -330,28 +329,31 @@ CANDIDATES = [
         "name": "Ethan Brooks",
         "email": "ethan.brooks@demo.pomelo.test",
         "summary": (
-            "Backend and product engineer with digital banking and payments experience, "
-            "strong Java services fundamentals, and a track record of leading cross-stack releases."
+            "Recent CS grad with a fintech internship, solid Java coursework, and "
+            "personal projects in React and PostgreSQL. Eager to grow in backend "
+            "financial software."
         ),
         "top_skills": ["Java", "TypeScript", "React", "PostgreSQL", "AWS"],
-        "resume_score": 0.86,
+        "resume_score": 0.65,
         "resume_text": (
-            "Ethan Brooks builds customer-facing financial software. He has worked on "
-            "Java microservices, PostgreSQL-backed APIs, and React applications for account "
-            "management and onboarding workflows. He has handled incident response, security "
-            "reviews, and design sessions for service decomposition in regulated environments."
+            "Ethan Brooks just finished his CS degree and completed one internship at a "
+            "small fintech company where he fixed bugs in a Java service and helped add "
+            "a few API endpoints. He built a React budgeting app as a class project, "
+            "has used PostgreSQL in coursework, and is comfortable with Git and basic "
+            "AWS deployments from tutorials. He is looking for his first full-time "
+            "software engineering role."
         ),
         "embedding_skills": {
-            "Java": 0.94,
-            "TypeScript": 0.8,
-            "React": 0.76,
-            "SQL": 0.84,
-            "PostgreSQL": 0.83,
-            "AWS": 0.78,
-            "Microservices": 0.82,
-            "Security": 0.73,
-            "REST API": 0.86,
-            "Git": 0.77,
+            "Java": 0.68,
+            "TypeScript": 0.50,
+            "React": 0.55,
+            "SQL": 0.62,
+            "PostgreSQL": 0.58,
+            "AWS": 0.38,
+            "Microservices": 0.30,
+            "Security": 0.28,
+            "REST API": 0.55,
+            "Git": 0.65,
         },
         "created_at": BASE_TIME - timedelta(days=15, hours=7),
     },
@@ -360,29 +362,31 @@ CANDIDATES = [
         "name": "Sofia Ramirez",
         "email": "sofia.ramirez@demo.pomelo.test",
         "summary": (
-            "Healthcare data platform engineer with strong batch-processing, warehouse, "
-            "and data quality experience across sensitive operational datasets."
+            "Recent data science grad with internship experience cleaning and loading "
+            "health-related datasets, solid SQL and Python fundamentals, and a "
+            "capstone project using Spark."
         ),
         "top_skills": ["Python", "SQL", "Spark", "Data Engineering", "AWS"],
-        "resume_score": 0.88,
+        "resume_score": 0.68,
         "resume_text": (
-            "Sofia Ramirez has spent the last several years building healthcare analytics "
-            "and operations pipelines. She owns Python and Spark jobs, writes SQL for "
-            "warehouse modeling, automates CI/CD for data releases, and works closely with "
-            "analytics and operations teams on trusted datasets. She is especially strong "
-            "at debugging data quality issues and documenting lineage."
+            "Sofia Ramirez graduated with a data science degree and spent one summer as "
+            "a data intern at a healthcare software company where she wrote SQL queries, "
+            "cleaned CSV datasets in Python, and helped document a data pipeline. Her "
+            "senior capstone used PySpark to process a public health dataset. She has "
+            "basic AWS knowledge from class, uses Git regularly, and is excited to grow "
+            "into a data engineering role."
         ),
         "embedding_skills": {
-            "Python": 0.9,
-            "SQL": 0.94,
-            "Spark": 0.88,
-            "PostgreSQL": 0.7,
-            "Data Engineering": 0.95,
-            "AWS": 0.73,
-            "CI/CD": 0.68,
-            "Security": 0.66,
-            "Pandas": 0.72,
-            "Git": 0.75,
+            "Python": 0.70,
+            "SQL": 0.74,
+            "Spark": 0.55,
+            "PostgreSQL": 0.48,
+            "Data Engineering": 0.62,
+            "AWS": 0.35,
+            "CI/CD": 0.28,
+            "Security": 0.25,
+            "Pandas": 0.65,
+            "Git": 0.60,
         },
         "created_at": BASE_TIME - timedelta(days=14, hours=3),
     },
@@ -391,28 +395,31 @@ CANDIDATES = [
         "name": "Jordan Lee",
         "email": "jordan.lee@demo.pomelo.test",
         "summary": (
-            "Product-minded full-stack engineer with strong React, Node.js, and GraphQL "
-            "experience shipping user-facing workflows for operational teams."
+            "Bootcamp grad with several self-directed React and Node.js projects, "
+            "comfortable with TypeScript and REST APIs, looking for a first junior "
+            "frontend or full-stack role."
         ),
         "top_skills": ["TypeScript", "React", "Node.js", "GraphQL", "System Design"],
-        "resume_score": 0.78,
+        "resume_score": 0.58,
         "resume_text": (
-            "Jordan Lee builds web products that connect design, product, and operations. "
-            "He has shipped React and TypeScript applications, Node.js services, GraphQL "
-            "APIs, and analytics instrumentation for complex user journeys. He often owns "
-            "cross-functional releases and is comfortable debugging issues from browser to database."
+            "Jordan Lee completed a full-stack web development bootcamp and has been "
+            "building projects since. He made a React task-tracking app with a Node.js "
+            "backend, experimented with a small GraphQL API following a tutorial, and "
+            "deployed a couple of sites to basic hosting. He is learning TypeScript and "
+            "has read about system design but has not applied it professionally yet. "
+            "He is looking for a junior role where he can keep growing."
         ),
         "embedding_skills": {
-            "TypeScript": 0.92,
-            "React": 0.9,
-            "Node.js": 0.82,
-            "GraphQL": 0.8,
-            "REST API": 0.7,
-            "System Design": 0.72,
-            "AWS": 0.55,
-            "Security": 0.5,
-            "HTML": 0.74,
-            "CSS": 0.72,
+            "TypeScript": 0.52,
+            "React": 0.65,
+            "Node.js": 0.58,
+            "GraphQL": 0.38,
+            "REST API": 0.55,
+            "System Design": 0.28,
+            "AWS": 0.22,
+            "Security": 0.18,
+            "HTML": 0.72,
+            "CSS": 0.68,
         },
         "created_at": BASE_TIME - timedelta(days=13, hours=9),
     },
@@ -421,27 +428,30 @@ CANDIDATES = [
         "name": "Priya Nair",
         "email": "priya.nair@demo.pomelo.test",
         "summary": (
-            "Data engineer with financial reporting and controls experience, strong SQL "
-            "and Spark fundamentals, and a careful approach to lineage and reconciliation."
+            "Finance major who picked up Python and SQL through coursework and a "
+            "part-time analyst role, now pivoting into data engineering with a "
+            "basic Spark background."
         ),
         "top_skills": ["Python", "SQL", "PostgreSQL", "Spark", "Security"],
-        "resume_score": 0.74,
+        "resume_score": 0.62,
         "resume_text": (
-            "Priya Nair works on risk and reporting data problems. She has built Python "
-            "and Spark transformations, tuned PostgreSQL workloads, partnered with finance "
-            "stakeholders on reconciliations, and improved data validation checks for daily "
-            "reporting pipelines. She is known for clear documentation and thoughtful controls."
+            "Priya Nair studied finance and taught herself Python and SQL to handle "
+            "data tasks in a part-time analyst job where she built Excel-to-SQL "
+            "reporting scripts and cleaned up a few PostgreSQL tables. She took an "
+            "online Spark course last semester and completed its exercises. She is "
+            "methodical and takes data quality seriously, and is looking to transition "
+            "fully into a data engineering role."
         ),
         "embedding_skills": {
-            "Python": 0.78,
-            "SQL": 0.9,
-            "PostgreSQL": 0.83,
-            "Spark": 0.8,
-            "Data Engineering": 0.74,
-            "AWS": 0.58,
-            "Security": 0.71,
-            "Git": 0.72,
-            "Pandas": 0.65,
+            "Python": 0.58,
+            "SQL": 0.72,
+            "PostgreSQL": 0.60,
+            "Spark": 0.42,
+            "Data Engineering": 0.45,
+            "AWS": 0.22,
+            "Security": 0.32,
+            "Git": 0.50,
+            "Pandas": 0.55,
         },
         "created_at": BASE_TIME - timedelta(days=12, hours=11),
     },
@@ -450,26 +460,27 @@ CANDIDATES = [
         "name": "Caleb Wright",
         "email": "caleb.wright@demo.pomelo.test",
         "summary": (
-            "Frontend-leaning software engineer who has shipped React and Node.js features "
-            "for consumer experiences and internal support tooling."
+            "Self-taught frontend developer with React and CSS projects on GitHub, "
+            "comfortable consuming REST APIs, still building backend confidence."
         ),
         "top_skills": ["TypeScript", "React", "Node.js", "CSS", "REST API"],
-        "resume_score": 0.68,
+        "resume_score": 0.50,
         "resume_text": (
-            "Caleb Wright focuses on polished web experiences. He has shipped TypeScript "
-            "and React interfaces, integrated REST APIs, contributed Node.js endpoints, "
-            "and partnered with design on experimentation and usability improvements. "
-            "He is strongest in frontend execution and cross-team communication."
+            "Caleb Wright taught himself web development through YouTube and freeCodeCamp. "
+            "He has built a few React hobby projects, styled them with CSS, and learned "
+            "how to call REST APIs from the frontend. He followed a Node.js tutorial to "
+            "add a simple backend to one project and has dabbled in GraphQL through an "
+            "online course. He is entry-level and knows his backend skills need work."
         ),
         "embedding_skills": {
-            "TypeScript": 0.84,
-            "React": 0.88,
-            "Node.js": 0.68,
-            "CSS": 0.8,
-            "REST API": 0.7,
+            "TypeScript": 0.45,
+            "React": 0.68,
+            "Node.js": 0.35,
+            "CSS": 0.72,
+            "REST API": 0.50,
             "HTML": 0.75,
-            "GraphQL": 0.52,
-            "Git": 0.7,
+            "GraphQL": 0.25,
+            "Git": 0.55,
         },
         "created_at": BASE_TIME - timedelta(days=11, hours=5),
     },
@@ -478,26 +489,29 @@ CANDIDATES = [
         "name": "Hannah Chen",
         "email": "hannah.chen@demo.pomelo.test",
         "summary": (
-            "Platform engineer with strong Kubernetes, CI/CD, and Linux operations "
-            "experience supporting high-throughput internal services."
+            "CS student who ran campus Linux servers, learned Docker and Kubernetes "
+            "through side projects, and is looking for a first DevOps or platform role."
         ),
         "top_skills": ["Go", "Kubernetes", "Docker", "AWS", "CI/CD"],
-        "resume_score": 0.57,
+        "resume_score": 0.44,
         "resume_text": (
-            "Hannah Chen works on service platform tooling and deployment reliability. "
-            "She has managed Kubernetes clusters, built Go helpers for internal developer "
-            "workflows, improved CI/CD speed, and reduced noisy infrastructure alerts. "
-            "She is comfortable with Linux, containers, and operational debugging."
+            "Hannah Chen is finishing her CS degree and has spent the last year as a "
+            "volunteer sysadmin for her university's student computing club, keeping "
+            "Linux servers running and setting up Docker containers for club projects. "
+            "She went through a Kubernetes tutorial, deployed a small app on a free "
+            "cloud tier, and wrote a short Go script to automate a repetitive task. "
+            "She has no professional DevOps experience yet but learns quickly and wants "
+            "to grow into platform engineering."
         ),
         "embedding_skills": {
-            "Go": 0.76,
-            "Kubernetes": 0.88,
-            "Docker": 0.85,
-            "AWS": 0.74,
-            "Linux": 0.82,
-            "CI/CD": 0.84,
-            "System Design": 0.48,
-            "Git": 0.68,
+            "Go": 0.32,
+            "Kubernetes": 0.48,
+            "Docker": 0.62,
+            "AWS": 0.28,
+            "Linux": 0.65,
+            "CI/CD": 0.42,
+            "System Design": 0.20,
+            "Git": 0.58,
         },
         "created_at": BASE_TIME - timedelta(days=10, hours=13),
     },
@@ -506,24 +520,63 @@ CANDIDATES = [
         "name": "Leo Martinez",
         "email": "leo.martinez@demo.pomelo.test",
         "summary": (
-            "Early-career engineer with internship experience in QA automation and basic "
-            "web development, showing promise but still building depth."
+            "Junior in college with one part-time internship, still building core "
+            "skills in Python and web basics, looking for a role with mentorship."
         ),
         "top_skills": ["Python", "HTML", "CSS", "Git"],
-        "resume_score": 0.35,
+        "resume_score": 0.28,
         "resume_text": (
-            "Leo Martinez recently completed a software engineering internship where he "
-            "helped with QA automation scripts, internal dashboard tweaks, and bug triage. "
-            "He has classroom and internship experience with Python, basic HTML and CSS, "
-            "and version control, and is looking for a role with strong mentorship."
+            "Leo Martinez is a junior studying information systems. Last semester he "
+            "did a part-time internship where he updated content on an internal HTML "
+            "dashboard and wrote a short Python script to rename files in bulk. He "
+            "knows basic CSS from a web design class, uses Git for class projects, "
+            "and is comfortable asking for help. He is looking for an internship or "
+            "entry-level role with strong mentorship."
         ),
         "embedding_skills": {
-            "Python": 0.42,
-            "HTML": 0.45,
-            "CSS": 0.4,
-            "Git": 0.38,
+            "Python": 0.28,
+            "HTML": 0.38,
+            "CSS": 0.32,
+            "Git": 0.30,
         },
         "created_at": BASE_TIME - timedelta(days=9, hours=4),
+    },
+    {
+        "alias": "alex_rivera",
+        "name": "Alex Rivera",
+        "email": "alex.rivera@demo.pomelo.test",
+        "summary": (
+            "Full-stack engineer with four years at a B2B SaaS startup, comfortable "
+            "owning React frontends and Node.js APIs end to end, with solid PostgreSQL "
+            "and AWS experience from real product work."
+        ),
+        "top_skills": ["TypeScript", "React", "Node.js", "PostgreSQL", "AWS"],
+        "resume_score": 0.82,
+        "resume_text": (
+            "Alex Rivera spent four years as a software engineer at a mid-size SaaS "
+            "company building customer-facing dashboards in React and TypeScript and "
+            "maintaining the Node.js services behind them. He owns features from "
+            "database query to UI, has dealt with slow PostgreSQL queries and on-call "
+            "incidents, and set up CI/CD pipelines on AWS. He is comfortable working "
+            "without much hand-holding but still defers to senior engineers on "
+            "architecture decisions. Looking for a role with a stronger product mission "
+            "and a bigger team."
+        ),
+        "embedding_skills": {
+            "TypeScript": 0.88,
+            "React": 0.85,
+            "Node.js": 0.82,
+            "GraphQL": 0.55,
+            "REST API": 0.80,
+            "System Design": 0.60,
+            "AWS": 0.68,
+            "Security": 0.52,
+            "PostgreSQL": 0.75,
+            "SQL": 0.72,
+            "CI/CD": 0.60,
+            "Git": 0.85,
+        },
+        "created_at": BASE_TIME - timedelta(days=8, hours=6),
     },
 ]
 
@@ -535,10 +588,11 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=3, hours=6),
         "recruiter_direction": SwipeDirection.like,
         "recruiter_swiped_at": BASE_TIME - timedelta(days=3, hours=2),
-        "keyword_score": 0.95,
+        "keyword_score": 0.74,
         "keyword_reasoning": (
-            "Direct applied AI product experience, strong evaluation mindset, and clear "
-            "alignment with Python plus model-serving workflows."
+            "Python and ML coursework align with the role keywords, and the internship "
+            "retrieval project shows early applied AI interest. Limited production depth "
+            "but a strong foundation for an entry-level hire."
         ),
         "keyword_approved": True,
         "created_at": BASE_TIME - timedelta(days=3, hours=6),
@@ -550,10 +604,10 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=4, hours=7),
         "recruiter_direction": SwipeDirection.like,
         "recruiter_swiped_at": BASE_TIME - timedelta(days=4, hours=1),
-        "keyword_score": 0.88,
+        "keyword_score": 0.65,
         "keyword_reasoning": (
-            "Strong overlap with customer-facing financial systems, Java services, and "
-            "security-minded delivery in regulated environments."
+            "Java coursework and fintech internship touch the right keywords. Backend "
+            "depth is limited but the fundamentals are there for a junior banking role."
         ),
         "keyword_approved": True,
         "created_at": BASE_TIME - timedelta(days=4, hours=7),
@@ -565,10 +619,11 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=6, hours=3),
         "recruiter_direction": SwipeDirection.like,
         "recruiter_swiped_at": BASE_TIME - timedelta(days=6, hours=1),
-        "keyword_score": 0.91,
+        "keyword_score": 0.68,
         "keyword_reasoning": (
-            "Excellent fit for large-scale healthcare-style data engineering with strong "
-            "Spark, SQL, lineage, and reliability signals."
+            "SQL and Python internship work matches data platform keywords. Spark is "
+            "coursework-level only, but the healthcare dataset exposure is a plus for "
+            "an entry-level data engineering candidate."
         ),
         "keyword_approved": True,
         "created_at": BASE_TIME - timedelta(days=6, hours=3),
@@ -580,10 +635,10 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=2, hours=12),
         "recruiter_direction": None,
         "recruiter_swiped_at": None,
-        "keyword_score": 0.84,
+        "keyword_score": 0.62,
         "keyword_reasoning": (
-            "Relevant risk-data background with solid SQL, Spark, and controls-oriented "
-            "thinking. Worth recruiter review."
+            "SQL and Python keyword match is decent given her analyst background. "
+            "Spark is self-taught and shallow. Worth a recruiter look for a junior opening."
         ),
         "keyword_approved": True,
         "created_at": BASE_TIME - timedelta(days=2, hours=12),
@@ -595,10 +650,11 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=2, hours=5),
         "recruiter_direction": None,
         "recruiter_swiped_at": None,
-        "keyword_score": 0.79,
+        "keyword_score": 0.46,
         "keyword_reasoning": (
-            "Strong operational platform signals with Kubernetes, CI/CD, and Linux; less "
-            "model-specific depth, but the platform fit is plausible."
+            "Docker and Linux club experience maps to some platform keywords, but "
+            "Kubernetes and Go are tutorial-level only. Marginal fit for an inference "
+            "platform role without more hands-on experience."
         ),
         "keyword_approved": True,
         "created_at": BASE_TIME - timedelta(days=2, hours=5),
@@ -622,10 +678,10 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=2, hours=9),
         "recruiter_direction": SwipeDirection.pass_,
         "recruiter_swiped_at": BASE_TIME - timedelta(days=2, hours=2),
-        "keyword_score": 0.62,
+        "keyword_score": 0.42,
         "keyword_reasoning": (
-            "Frontend execution is solid, but the role needs more backend API ownership "
-            "and stronger security depth."
+            "React and HTML are there but everything else is tutorial-level. The role "
+            "needs more backend depth and security awareness than this profile shows."
         ),
         "keyword_approved": False,
         "created_at": BASE_TIME - timedelta(days=2, hours=9),
@@ -637,16 +693,43 @@ SWIPES = [
         "candidate_swiped_at": BASE_TIME - timedelta(days=1, hours=20),
         "recruiter_direction": SwipeDirection.pass_,
         "recruiter_swiped_at": BASE_TIME - timedelta(days=1, hours=18),
-        "keyword_score": 0.31,
+        "keyword_score": 0.22,
         "keyword_reasoning": (
-            "Promising fundamentals, but experience is still too early for a banking platform role with production ownership."
+            "HTML and Python basics do not meet the keyword bar for a banking platform role. "
+            "No Java, SQL, or security background in evidence."
         ),
         "keyword_approved": False,
         "created_at": BASE_TIME - timedelta(days=1, hours=20),
     },
+    {
+        "candidate_alias": "alex_rivera",
+        "role_alias": "uhg_member_experience",
+        "candidate_direction": SwipeDirection.like,
+        "candidate_swiped_at": BASE_TIME - timedelta(days=1, hours=10),
+        "recruiter_direction": SwipeDirection.like,
+        "recruiter_swiped_at": BASE_TIME - timedelta(hours=22),
+        "keyword_score": 0.86,
+        "keyword_reasoning": (
+            "Strong TypeScript, React, Node.js, and REST API overlap with the role. "
+            "Four years of product ownership is a clear signal for a member-experience "
+            "engineering role."
+        ),
+        "keyword_approved": True,
+        "created_at": BASE_TIME - timedelta(days=1, hours=10),
+    },
 ]
 
 MATCHES = [
+    {
+        "candidate_alias": "alex_rivera",
+        "role_alias": "uhg_member_experience",
+        "status": MatchStatus.pending,
+        "matched_at": BASE_TIME - timedelta(hours=22),
+        "completed_at": None,
+        "final_score": None,
+        "recommendation": None,
+        "interview_summary": None,
+    },
     {
         "candidate_alias": "ethan_brooks",
         "role_alias": "goldman_digital_banking",
@@ -677,36 +760,37 @@ MATCHES = [
         "recommendation": "strong yes",
         "interview_summary": json.dumps(
             {
-                "behavioral_score": 0.89,
-                "communication_score": 0.84,
+                "behavioral_score": 0.72,
+                "communication_score": 0.75,
                 "concerns": [
-                    "Could be sharper on rough-order capacity planning assumptions for fast-changing data volume."
+                    "Spark experience is coursework-level only — has not run jobs on real production data.",
+                    "Answers stayed close to her internship and class projects; struggled to generalize to new scenarios.",
                 ],
-                "confidence": 0.86,
+                "confidence": 0.70,
                 "flags_summary": [],
                 "interviewer_notes": {
                     "do_not_ask_again": [
-                        "Data quality ownership",
-                        "Cross-functional stakeholder communication",
+                        "Internship data cleaning work",
+                        "Capstone project details",
                     ],
                     "suggested_opener": (
-                        "Start by asking how she would phase observability upgrades for a new healthcare data domain."
+                        "Ask how she would approach learning a new data pipeline codebase on her first week."
                     ),
                     "topics_to_probe": [
-                        "Real-time pipeline design",
-                        "Cost controls at larger scale",
+                        "How she handles ambiguity without a supervisor nearby",
+                        "Comfort with reading and writing SQL for unfamiliar schemas",
                     ],
                 },
                 "one_liner": (
-                    "Strong healthcare data platform operator with trustworthy execution and clear communication."
+                    "Motivated entry-level candidate with the right fundamentals; needs hands-on pipeline experience to grow into the role."
                 ),
-                "scores_weighted": 0.87,
+                "scores_weighted": 0.71,
                 "strengths": [
-                    "Owns data quality and lineage end to end",
-                    "Communicates tradeoffs clearly to technical and non-technical partners",
-                    "Strong Spark and SQL foundation for regulated data workflows",
+                    "Clear communicator who explains her reasoning step by step",
+                    "Genuinely curious about data quality and documentation",
+                    "SQL and Python basics are solid for someone at this stage",
                 ],
-                "technical_score": 0.85,
+                "technical_score": 0.68,
                 "verdict": "ADVANCE",
             },
             sort_keys=True,
@@ -727,15 +811,15 @@ INTERVIEW_MESSAGES = [
         "match_key": ("mira_patel", "openai_applied_ai"),
         "role": MessageRole.answer,
         "content": (
-            "At my last startup I shipped a support copilot that summarized account context "
-            "and drafted next-step recommendations. I owned the FastAPI service, built offline "
-            "evals for citation quality, and set alert thresholds when groundedness dropped after deployment."
+            "During my internship I helped build a small retrieval prototype — I wrote the "
+            "FastAPI endpoints and helped run some basic accuracy checks on the outputs. "
+            "My mentor reviewed the evals but I learned a lot about what to look for."
         ),
         "question_index": 0,
-        "score": 0.91,
-        "score_label": "strong",
+        "score": 0.62,
+        "score_label": "adequate",
         "flags": [],
-        "grade_reasoning": "Specific ownership, clear eval strategy, and strong production follow-through.",
+        "grade_reasoning": "Shows relevant internship exposure but ownership was shared and depth is limited.",
         "recruiter_injected": False,
         "created_at": BASE_TIME - timedelta(days=2, hours=23, minutes=34),
     },
@@ -751,22 +835,22 @@ INTERVIEW_MESSAGES = [
         "match_key": ("mira_patel", "openai_applied_ai"),
         "role": MessageRole.answer,
         "content": (
-            "I start by defining the user promise, then I create a small golden set and "
-            "failure taxonomy before discussing architecture. That lets product and engineering "
-            "agree on what 'good' looks like before we optimize prompts or retrieval."
+            "I think I would start by writing down what the feature is supposed to do and "
+            "maybe test it on a few example inputs. I have not done this professionally "
+            "yet but in my ML course we would check accuracy on a held-out set before calling something done."
         ),
         "question_index": 1,
-        "score": 0.87,
-        "score_label": "strong",
+        "score": 0.48,
+        "score_label": "adequate",
         "flags": [],
-        "grade_reasoning": "Grounded framework with good prioritization of evals and stakeholder alignment.",
+        "grade_reasoning": "Answer is conceptually on track but relies on coursework framing and lacks practical detail.",
         "recruiter_injected": False,
         "created_at": BASE_TIME - timedelta(days=2, hours=23, minutes=25),
     },
     {
         "match_key": ("mira_patel", "openai_applied_ai"),
         "role": MessageRole.follow_up,
-        "content": "What changed in your eval plan once real user traffic exposed new edge cases?",
+        "content": "What would you do differently if the same prototype needed to handle ten times the input variety?",
         "question_index": None,
         "recruiter_injected": True,
         "created_at": BASE_TIME - timedelta(days=2, hours=23, minutes=22),
@@ -775,15 +859,15 @@ INTERVIEW_MESSAGES = [
         "match_key": ("mira_patel", "openai_applied_ai"),
         "role": MessageRole.answer,
         "content": (
-            "We added a slice for low-context tickets and reweighted the eval set toward "
-            "cases where the retriever returned near-duplicates. We also introduced manual "
-            "review on a small sample each week so drift did not hide behind aggregate scores."
+            "I think I would add more varied examples to the test set and maybe try a few "
+            "different prompts to see which one handled the edge cases better. I am not "
+            "sure exactly how I would set that up at scale but that is what I would start with."
         ),
         "question_index": None,
-        "score": 0.84,
-        "score_label": "strong",
+        "score": 0.45,
+        "score_label": "adequate",
         "flags": [],
-        "grade_reasoning": "Good evidence of iterative thinking once production traffic changed the problem shape.",
+        "grade_reasoning": "Reasonable instinct but vague — no concrete plan for handling scale or systematic eval.",
         "recruiter_injected": True,
         "created_at": BASE_TIME - timedelta(days=2, hours=23, minutes=17),
     },
@@ -799,15 +883,15 @@ INTERVIEW_MESSAGES = [
         "match_key": ("mira_patel", "openai_applied_ai"),
         "role": MessageRole.answer,
         "content": (
-            "I reduced p95 latency by splitting retrieval from generation, caching "
-            "stable account metadata, and adding request budgets per downstream dependency. "
-            "The change cut user-visible latency by about a third without hurting answer quality."
+            "I have not worked on a production service yet, but in my internship the "
+            "prototype was slow and my mentor suggested caching some of the repeated lookups. "
+            "I helped implement that and it did seem faster, but I did not measure it formally."
         ),
         "question_index": 2,
-        "score": 0.89,
-        "score_label": "strong",
-        "flags": [],
-        "grade_reasoning": "Strong technical ownership with concrete latency improvements and sensible tradeoffs.",
+        "score": 0.40,
+        "score_label": "weak",
+        "flags": ["no_production_experience"],
+        "grade_reasoning": "Describes a valid concept but entirely anecdotal with no ownership or measurement.",
         "recruiter_injected": False,
         "created_at": BASE_TIME - timedelta(days=2, hours=23, minutes=6),
     },
@@ -823,15 +907,15 @@ INTERVIEW_MESSAGES = [
         "match_key": ("sofia_ramirez", "uhg_data_platform"),
         "role": MessageRole.answer,
         "content": (
-            "I owned a claims-adjacent ingest flow where late-arriving records could break "
-            "operational reports. I added completeness checks, row-level lineage, and rollback "
-            "guards so teams could trust daily numbers before publish."
+            "In my internship I worked on a pipeline that loaded patient visit data into "
+            "a warehouse table. I noticed some rows were duplicated and wrote a SQL check "
+            "to catch them before the load. My supervisor helped me add it to the pipeline."
         ),
         "question_index": 0,
-        "score": 0.9,
-        "score_label": "strong",
+        "score": 0.65,
+        "score_label": "adequate",
         "flags": [],
-        "grade_reasoning": "Excellent detail on reliability, controls, and downstream trust.",
+        "grade_reasoning": "Relevant internship example with concrete SQL work, though ownership was supervised.",
         "recruiter_injected": False,
         "created_at": BASE_TIME - timedelta(days=5, hours=23, minutes=43),
     },
@@ -847,15 +931,15 @@ INTERVIEW_MESSAGES = [
         "match_key": ("sofia_ramirez", "uhg_data_platform"),
         "role": MessageRole.answer,
         "content": (
-            "We used role-based access with clearly documented data contracts, limited "
-            "raw PHI access to specific service accounts, and logged every privileged data "
-            "movement so audits were straightforward."
+            "I know sensitive data should be restricted so not everyone can see it. "
+            "At my internship we used different database users with different permissions "
+            "but I was not the one setting that up — I just knew I could only read, not write."
         ),
         "question_index": 3,
-        "score": 0.83,
-        "score_label": "strong",
-        "flags": [],
-        "grade_reasoning": "Covers access control, auditability, and pragmatic operational safeguards.",
+        "score": 0.42,
+        "score_label": "weak",
+        "flags": ["limited_security_depth"],
+        "grade_reasoning": "Aware of access control at a surface level but no hands-on experience designing controls.",
         "recruiter_injected": False,
         "created_at": BASE_TIME - timedelta(days=5, hours=23, minutes=31),
     },
@@ -871,15 +955,15 @@ INTERVIEW_MESSAGES = [
         "match_key": ("sofia_ramirez", "uhg_data_platform"),
         "role": MessageRole.answer,
         "content": (
-            "I prioritize downstream blast radius, then rollout risk, then engineering effort. "
-            "For shared datasets I favor versioned schemas and overlap windows so consumers can "
-            "migrate without losing trust in the pipeline."
+            "I would probably talk to whoever uses the dataset first to see how urgent "
+            "their needs are, then try to make the change in a way that does not break "
+            "their existing queries. I am not sure what the right process is exactly."
         ),
         "question_index": 5,
-        "score": 0.86,
-        "score_label": "strong",
+        "score": 0.50,
+        "score_label": "adequate",
         "flags": [],
-        "grade_reasoning": "Strong stakeholder-aware sequencing and good platform judgment.",
+        "grade_reasoning": "Instinct to consult stakeholders is good but no concrete approach to schema migration.",
         "recruiter_injected": False,
         "created_at": BASE_TIME - timedelta(days=5, hours=23, minutes=20),
     },
