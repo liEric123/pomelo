@@ -151,6 +151,11 @@ class Swipe(SQLModel, table=True):
         sa_column=Column(sa.DateTime(timezone=True), nullable=True),
     )
 
+    # recruiter keyword screening result (optional pre-swipe step)
+    keyword_score: Optional[float] = None          # 0–1 score from keyword_match prompt
+    keyword_reasoning: Optional[str] = None        # recruiter-facing explanation
+    keyword_approved: Optional[bool] = None        # approve_for_interview flag from Claude
+
     created_at: datetime = Field(
         default_factory=utcnow,
         sa_column=Column(sa.DateTime(timezone=True), nullable=False),

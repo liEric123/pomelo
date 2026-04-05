@@ -1,14 +1,31 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session
 from typing import Optional
 
 from database import get_session
+from services.hiring_coordinator import (
+    create_role as _create_role,
+    list_roles as _list_roles,
+    get_role_candidates as _get_role_candidates,
+    record_swipe as _record_swipe,
+    screen_candidate_keywords as _screen_candidate_keywords,
+    get_active_interviews as _get_active_interviews,
+    get_role_dashboard as _get_role_dashboard,
+    compare_role_candidates as _compare_role_candidates,
+    NotFoundError,
+    InvalidSwipeError,
+    DuplicateSwipeError,
+    SwipeLimitError,
+    AIServiceError,
+)
 
 router = APIRouter(prefix="/recruiter", tags=["recruiter"])
 
 
-# --- Role management ---
+# ---------------------------------------------------------------------------
+# Role management
+# ---------------------------------------------------------------------------
 
 class RoleCreate(BaseModel):
     company_id: int
@@ -22,13 +39,33 @@ class RoleCreate(BaseModel):
     questions: list[str] = []
 
 
-@router.post("/roles")
+@router.post("/roles", status_code=201)
 def create_role(
     body: RoleCreate,
     session: Session = Depends(get_session),
 ):
-    """Create a new role. keywords and questions are recruiter-defined."""
-    pass
+    """Create a new role.
+
+    keywords: used for candidate feed matching.
+    questions: recruiter-defined questions for the interview question set.
+
+    Returns the created role with role_id.
+    """
+    try:
+        return _create_role(
+            company_id=body.company_id,
+            title=body.title,
+            description=body.description,
+            location=body.location,
+            is_remote=body.is_remote,
+            min_score=body.min_score,
+            max_score=body.max_score,
+            keywords=body.keywords,
+            questions=body.questions,
+            session=session,
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/roles")
@@ -36,50 +73,135 @@ def list_roles(
     company_id: int,
     session: Session = Depends(get_session),
 ):
-    """List all active roles for a company."""
-    pass
+    """List all active roles for a company.
+
+    Returns role metadata including keywords, score range, and question count.
+    """
+    try:
+        return _list_roles(company_id, session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
-# --- Candidate review ---
+# ---------------------------------------------------------------------------
+# Candidate review queue
+# ---------------------------------------------------------------------------
 
 @router.get("/roles/{role_id}/candidates")
 def get_role_candidates(
     role_id: int,
     session: Session = Depends(get_session),
 ):
-    """Return all candidates who swiped like on this role, with scores.
+    """Return candidates who liked this role and are waiting for recruiter review.
 
-    Used for the recruiter's candidate review queue before they swipe back.
+    Sorted by resume_score descending. Only shows candidates the recruiter
+    hasn't swiped on yet. Use POST .../swipe to act on each candidate.
     """
-    pass
+    try:
+        return _get_role_candidates(role_id, session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/roles/{role_id}/candidates/{candidate_id}/keyword-filter")
+def keyword_filter_candidate(
+    role_id: int,
+    candidate_id: int,
+    session: Session = Depends(get_session),
+):
+    """Run AI keyword screening for a candidate against a role.
+
+    The candidate must have already liked the role (must be in the review queue).
+    Results are persisted on the swipe row — re-calling overwrites the previous result.
+
+    Response: {candidate_id, role_id, keyword_score, reasoning, approve_for_interview}
+    """
+    try:
+        return _screen_candidate_keywords(candidate_id, role_id, session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except AIServiceError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+class RecruiterSwipeRequest(BaseModel):
+    direction: str  # "like" or "pass"
 
 
 @router.post("/roles/{role_id}/candidates/{candidate_id}/swipe")
 def recruiter_swipe(
     role_id: int,
     candidate_id: int,
-    direction: str,  # "like" or "pass"
+    body: RecruiterSwipeRequest,
     session: Session = Depends(get_session),
 ):
-    """Record a recruiter's like/pass on a candidate for a role.
+    """Record a recruiter's like or pass on a candidate for a role.
 
-    If candidate already liked → creates a Match.
+    A mutual like (candidate already liked) creates a Match and starts
+    the interview pipeline.
+
+    Returns {"matched": true, "match_id": <id>} on mutual like,
+    or {"matched": false} otherwise.
     """
-    pass
+    try:
+        return _record_swipe(candidate_id, role_id, body.direction, "recruiter", session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except InvalidSwipeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except DuplicateSwipeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except SwipeLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e))
 
 
-# --- Dashboard & comparison ---
+# ---------------------------------------------------------------------------
+# Active interviews
+# ---------------------------------------------------------------------------
+
+@router.get("/active-interviews")
+def get_active_interviews(
+    company_id: Optional[int] = None,
+    session: Session = Depends(get_session),
+):
+    """Return all matches currently in the interviewing state.
+
+    Pass company_id to scope to one company, or omit for all active interviews.
+
+    Each item: {match_id, role_id, role_title, candidate_id, candidate_name,
+                top_skills, matched_at}
+    """
+    return _get_active_interviews(session, company_id=company_id)
+
+
+# ---------------------------------------------------------------------------
+# Dashboard & comparison
+# ---------------------------------------------------------------------------
 
 @router.get("/dashboard/{role_id}")
 def get_dashboard(
     role_id: int,
     session: Session = Depends(get_session),
 ):
-    """Return completed interview summaries and scores for a role.
+    """Return the recruiter dashboard for a role.
 
-    Used for the recruiter dashboard after interviews are done.
+    Response shape:
+      {
+        "role": { role metadata },
+        "active": [ { match_id, candidate_id, name, resume_score_pct,
+                      top_skills, matched_at, status } ],
+        "completed": [ { match_id, candidate_id, name, resume_score_pct,
+                         top_skills, matched_at, final_score,
+                         recommendation, summary, completed_at } ]
+      }
+
+    active: pending + interviewing matches.
+    completed: finished interviews with parsed summary payload.
     """
-    pass
+    try:
+        return _get_role_dashboard(role_id, session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/roles/{role_id}/compare")
@@ -90,10 +212,21 @@ def compare_candidates(
 ):
     """Rank all completed candidates for a role and return advance/reject split.
 
-    Flow (comparison_service):
-      1. Load completed matches for role
-      2. Sum scores (resume + interview)
-      3. Sort and apply cutoff
-      4. Return ranked advance/reject lists
+    keep_top_pct: fraction to advance (0.0–1.0, default 0.5).
+
+    Composite score = 0.4 * resume_score + 0.6 * interview_score.
+
+    Response shape:
+      {
+        "advance": [ { candidate_id, name, total_score, rank, ... } ],
+        "reject":  [ { candidate_id, name, total_score, rank, ... } ],
+        "total": int,
+        "cutoff": int
+      }
     """
-    pass
+    if not (0.0 <= keep_top_pct <= 1.0):
+        raise HTTPException(status_code=400, detail="keep_top_pct must be between 0.0 and 1.0.")
+    try:
+        return _compare_role_candidates(role_id, keep_top_pct, session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
