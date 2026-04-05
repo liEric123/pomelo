@@ -2,6 +2,7 @@ import type { ChangeEvent, DragEvent, FormEvent } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
+import { setStoredCandidateId } from '../lib/candidate-session'
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 const ACCEPTED_FILE_TYPES = new Set([
@@ -239,6 +240,7 @@ export function CandidateSignupPage() {
 
     try {
       const response = await submitCandidateSignup(formData)
+      setStoredCandidateId(response.id)
       setResult(response)
     } catch (error) {
       setErrors({
