@@ -5,6 +5,7 @@ from database import get_session
 from services.hiring_coordinator import (
     register_candidate as _register_candidate,
     get_candidate_feed as _get_candidate_feed,
+    get_candidate_matches as _get_candidate_matches,
     DuplicateEmailError,
     UnsupportedFileError,
     ResumeExtractionError,
@@ -60,5 +61,12 @@ def get_candidate_matches(
     candidate_id: int,
     session: Session = Depends(get_session),
 ):
-    """Return all matches for a candidate with status and role info."""
-    pass
+    """Return all matches for a candidate, newest first.
+
+    Each item includes role title, company name, match status, and
+    interview outcome (final_score, recommendation) when completed.
+    """
+    try:
+        return _get_candidate_matches(candidate_id, session)
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))

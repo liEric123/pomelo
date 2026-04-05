@@ -19,8 +19,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from models import Candidate, Company, InterviewMessage, Match, MatchStatus, MessageRole, Role, Swipe, SwipeDirection
+import services.comparison_service as comparison_service
 from utils.resume_parser import extract_text
-from services.scoring_service import grade_resume
+from services.scoring_service import grade_resume, keyword_match as _keyword_match
 from services.resume_service import generate_skill_vector, zero_skill_vector
 from services.matching_service import build_role_vector, cosine_similarity
 from services.question_service import generate_simul_questions
@@ -671,6 +672,421 @@ def _build_time_stats(sess, qa_list: list[dict]) -> str:
 
 # ---------------------------------------------------------------------------
 # Private helpers
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Candidate matches
+# ---------------------------------------------------------------------------
+
+def get_candidate_matches(candidate_id: int, session: Session) -> list[dict]:
+    """Return all matches for a candidate, newest first.
+
+    Each item includes role + company context and interview outcome when available.
+
+    Raises:
+      NotFoundError — candidate not found
+    """
+    candidate = session.get(Candidate, candidate_id)
+    if not candidate:
+        raise NotFoundError(f"Candidate {candidate_id} not found.")
+
+    matches = session.exec(
+        select(Match)
+        .where(Match.candidate_id == candidate_id)
+        .order_by(Match.matched_at.desc())
+    ).all()
+
+    result = []
+    for match in matches:
+        role = session.get(Role, match.role_id)
+        company = session.get(Company, role.company_id) if role else None
+        result.append({
+            "match_id": match.id,
+            "role_id": match.role_id,
+            "role_title": role.title if role else None,
+            "company_name": company.name if company else None,
+            "status": match.status,
+            "matched_at": match.matched_at.isoformat(),
+            "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+            "final_score": match.final_score,
+            "recommendation": match.recommendation,
+        })
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Role management
+# ---------------------------------------------------------------------------
+
+def create_role(
+    company_id: int,
+    title: str,
+    description: str,
+    location: str | None,
+    is_remote: bool,
+    min_score: float,
+    max_score: float,
+    keywords: list[str],
+    questions: list[str],
+    session: Session,
+) -> dict:
+    """Create a new role for a company.
+
+    Raises:
+      NotFoundError — company not found
+    """
+    company = session.get(Company, company_id)
+    if not company:
+        raise NotFoundError(f"Company {company_id} not found.")
+
+    role = Role(
+        company_id=company_id,
+        title=title,
+        description=description,
+        location=location,
+        is_remote=is_remote,
+        min_score=min_score,
+        max_score=max_score,
+        keywords=keywords,
+        questions=questions,
+    )
+    session.add(role)
+    session.commit()
+    session.refresh(role)
+    return _role_dict(role, company.name)
+
+
+def list_roles(company_id: int, session: Session) -> list[dict]:
+    """Return all active roles for a company, newest first.
+
+    Raises:
+      NotFoundError — company not found
+    """
+    company = session.get(Company, company_id)
+    if not company:
+        raise NotFoundError(f"Company {company_id} not found.")
+
+    roles = session.exec(
+        select(Role)
+        .where(Role.company_id == company_id, Role.is_active == True)  # noqa: E712
+        .order_by(Role.created_at.desc())
+    ).all()
+    return [_role_dict(r, company.name) for r in roles]
+
+
+def _role_dict(role: Role, company_name: str) -> dict:
+    return {
+        "role_id": role.id,
+        "company_id": role.company_id,
+        "company_name": company_name,
+        "title": role.title,
+        "description": role.description,
+        "location": role.location,
+        "is_remote": role.is_remote,
+        "min_score": role.min_score,
+        "max_score": role.max_score,
+        "keywords": role.keywords,
+        "questions": role.questions,
+        "is_active": role.is_active,
+        "created_at": role.created_at.isoformat(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Recruiter review queue
+# ---------------------------------------------------------------------------
+
+def get_role_candidates(role_id: int, session: Session) -> list[dict]:
+    """Return candidates who liked this role and haven't been reviewed yet.
+
+    Sorted by resume_score descending so the best matches appear first.
+    This is the recruiter's candidate review queue before they swipe back.
+
+    Raises:
+      NotFoundError — role not found
+    """
+    role = session.get(Role, role_id)
+    if not role:
+        raise NotFoundError(f"Role {role_id} not found.")
+
+    pending_swipes = session.exec(
+        select(Swipe).where(
+            Swipe.role_id == role_id,
+            Swipe.candidate_direction == SwipeDirection.like,
+            Swipe.recruiter_direction.is_(None),
+        )
+    ).all()
+
+    result = []
+    for swipe in pending_swipes:
+        candidate = session.get(Candidate, swipe.candidate_id)
+        if not candidate:
+            continue
+        result.append({
+            "candidate_id": candidate.id,
+            "name": candidate.name,
+            "email": candidate.email,
+            "resume_score": candidate.resume_score,
+            "resume_score_pct": round((candidate.resume_score or 0.0) * 100, 1),
+            "summary": candidate.summary,
+            "top_skills": candidate.top_skills,
+            "swiped_at": swipe.candidate_swiped_at.isoformat() if swipe.candidate_swiped_at else None,
+            # keyword screening result — null until POST .../keyword-filter is called
+            "keyword_score": swipe.keyword_score,
+            "keyword_reasoning": swipe.keyword_reasoning,
+            "keyword_approved": swipe.keyword_approved,
+        })
+
+    result.sort(key=lambda x: x["resume_score"] or 0.0, reverse=True)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Keyword screening
+# ---------------------------------------------------------------------------
+
+def screen_candidate_keywords(candidate_id: int, role_id: int, session: Session) -> dict:
+    """Run keyword-match screening for a candidate against a role.
+
+    Requires the candidate to have already swiped like on the role (they must
+    be in the review queue). Persists the result on the Swipe row so the
+    recruiter can see it alongside the candidate card without re-running.
+
+    Returns {candidate_id, role_id, keyword_score, reasoning, approve_for_interview}.
+
+    Raises:
+      NotFoundError  — candidate, role, or a like-swipe from candidate not found
+      AIServiceError — Claude call failed or returned unparseable output
+    """
+    candidate = session.get(Candidate, candidate_id)
+    if not candidate:
+        raise NotFoundError(f"Candidate {candidate_id} not found.")
+
+    role = session.get(Role, role_id)
+    if not role:
+        raise NotFoundError(f"Role {role_id} not found.")
+
+    swipe = session.exec(
+        select(Swipe).where(
+            Swipe.candidate_id == candidate_id,
+            Swipe.role_id == role_id,
+            Swipe.candidate_direction == SwipeDirection.like,
+        )
+    ).first()
+    if swipe is None:
+        raise NotFoundError(
+            f"Candidate {candidate_id} has not liked role {role_id}. "
+            "Keyword screening requires the candidate to be in the review queue."
+        )
+
+    try:
+        result = _keyword_match(
+            role_title=role.title,
+            company_name=_company_name_for_role(role, session),
+            role_description=role.description,
+            keywords=", ".join(role.keywords or []),
+            resume_summary=candidate.summary or "",
+            top_skills=", ".join(candidate.top_skills or []),
+        )
+    except (anthropic.APIError, anthropic.APIConnectionError, anthropic.APITimeoutError) as e:
+        raise AIServiceError(f"Keyword screening API error: {e}") from e
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
+        raise AIServiceError(f"Keyword screening returned invalid output: {e}") from e
+
+    try:
+        raw_score = result.get("keyword_score", 0.0)
+        keyword_score = float(raw_score)
+        if not (0.0 <= keyword_score <= 1.0):
+            raise ValueError(f"keyword_score out of range: {keyword_score}")
+
+        reasoning = str(result.get("reasoning", ""))
+
+        raw_approved = result.get("approve_for_interview", False)
+        if not isinstance(raw_approved, bool):
+            raise TypeError(
+                f"approve_for_interview must be a JSON boolean, got {type(raw_approved).__name__}: {raw_approved!r}"
+            )
+        approved = raw_approved
+    except (TypeError, ValueError) as e:
+        raise AIServiceError(f"Keyword screening returned invalid output: {e}") from e
+
+    # Persist on the swipe row for cheap re-reads
+    swipe.keyword_score = keyword_score
+    swipe.keyword_reasoning = reasoning
+    swipe.keyword_approved = approved
+    session.add(swipe)
+    session.commit()
+
+    return {
+        "candidate_id": candidate_id,
+        "role_id": role_id,
+        "keyword_score": keyword_score,
+        "reasoning": reasoning,
+        "approve_for_interview": approved,
+    }
+
+
+def _company_name_for_role(role: Role, session: Session) -> str:
+    company = session.get(Company, role.company_id)
+    return company.name if company else "Company"
+
+
+# ---------------------------------------------------------------------------
+# Active interviews
+# ---------------------------------------------------------------------------
+
+def get_active_interviews(session: Session, company_id: int | None = None) -> list[dict]:
+    """Return all matches currently in the interviewing state.
+
+    Optionally scoped to a single company via company_id.
+    Returns lightweight dashboard-card dicts suitable for a live monitor view.
+    """
+    query = select(Match).where(Match.status == MatchStatus.interviewing)
+    matches = session.exec(query).all()
+
+    result: list[dict] = []
+    for match in matches:
+        role = session.get(Role, match.role_id)
+        if role is None:
+            continue
+        if company_id is not None and role.company_id != company_id:
+            continue
+        candidate = session.get(Candidate, match.candidate_id)
+        if candidate is None:
+            continue
+        result.append({
+            "match_id": match.id,
+            "role_id": role.id,
+            "role_title": role.title,
+            "candidate_id": candidate.id,
+            "candidate_name": candidate.name,
+            "top_skills": candidate.top_skills,
+            "matched_at": match.matched_at.isoformat(),
+        })
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Recruiter dashboard
+# ---------------------------------------------------------------------------
+
+def get_role_dashboard(role_id: int, session: Session) -> dict:
+    """Return recruiter dashboard data for a role.
+
+    Splits matches into active (pending / interviewing) and completed,
+    including parsed interview summaries for completed candidates.
+
+    Raises:
+      NotFoundError — role not found
+    """
+    role = session.get(Role, role_id)
+    if not role:
+        raise NotFoundError(f"Role {role_id} not found.")
+
+    company = session.get(Company, role.company_id)
+    company_name = company.name if company else "Company"
+
+    matches = session.exec(
+        select(Match)
+        .where(Match.role_id == role_id)
+        .order_by(Match.matched_at.desc())
+    ).all()
+
+    active: list[dict] = []
+    completed: list[dict] = []
+
+    for match in matches:
+        candidate = session.get(Candidate, match.candidate_id)
+        if not candidate:
+            continue
+
+        base = {
+            "match_id": match.id,
+            "candidate_id": candidate.id,
+            "name": candidate.name,
+            "resume_score_pct": round((candidate.resume_score or 0.0) * 100, 1),
+            "top_skills": candidate.top_skills,
+            "matched_at": match.matched_at.isoformat(),
+        }
+
+        if match.status == MatchStatus.completed:
+            summary = json.loads(match.interview_summary) if match.interview_summary else {}
+            completed.append({
+                **base,
+                "final_score": match.final_score,
+                "recommendation": match.recommendation,
+                "summary": summary,
+                "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+            })
+        else:
+            active.append({
+                **base,
+                "status": match.status,
+            })
+
+    return {
+        "role": _role_dict(role, company_name),
+        "active": active,
+        "completed": completed,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Candidate comparison
+# ---------------------------------------------------------------------------
+
+def compare_role_candidates(role_id: int, keep_top_pct: float, session: Session) -> dict:
+    """Rank all completed candidates for a role and return advance/reject split.
+
+    Composite score = 0.4 * resume_score + 0.6 * interview_score.
+    keep_top_pct controls the advance/reject boundary (0.0–1.0).
+
+    Raises:
+      NotFoundError — role not found
+    """
+    role = session.get(Role, role_id)
+    if not role:
+        raise NotFoundError(f"Role {role_id} not found.")
+
+    completed_matches = session.exec(
+        select(Match).where(
+            Match.role_id == role_id,
+            Match.status == MatchStatus.completed,
+        )
+    ).all()
+
+    if not completed_matches:
+        return {"advance": [], "reject": [], "total": 0, "cutoff": 0}
+
+    candidates_data: list[dict] = []
+    for match in completed_matches:
+        candidate = session.get(Candidate, match.candidate_id)
+        if not candidate:
+            continue
+        resume_score = candidate.resume_score or 0.0
+        interview_score = match.final_score or 0.0
+        candidates_data.append({
+            "match_id": match.id,
+            "candidate_id": candidate.id,
+            "name": candidate.name,
+            "resume_score": resume_score,
+            "resume_score_pct": round(resume_score * 100, 1),
+            "interview_score": interview_score,
+            "interview_score_pct": round(interview_score * 100, 1),
+            # total_score is added by rank_candidates
+            "total_score": round(0.4 * resume_score + 0.6 * interview_score, 3),
+            "recommendation": match.recommendation,
+            "top_skills": candidate.top_skills,
+            "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+        })
+
+    ranked = comparison_service.rank_candidates(candidates_data)
+    return comparison_service.apply_cutoff(ranked, keep_top_pct=keep_top_pct)
+
+
+# ---------------------------------------------------------------------------
+# Private helpers (grade validation)
 # ---------------------------------------------------------------------------
 
 def _normalize_grade(grade: dict) -> tuple[int, str, list[str]]:
