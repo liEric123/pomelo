@@ -1193,7 +1193,7 @@ export function RecruiterRolesPage() {
                             Match created
                           </span>
                           <Link
-                            to="/recruiter/dashboard"
+                            to={`/recruiter/dashboard?roleId=${selectedRoleId}&matchId=${outcome?.match_id ?? ''}`}
                             className="font-ui text-sm font-semibold text-navButton underline-offset-2 hover:text-navButtonHover hover:underline"
                           >
                             View in dashboard →
