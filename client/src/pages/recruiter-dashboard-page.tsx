@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '../lib/api'
 import { subscribeDashboard } from '../lib/sse'
 
 const DEFAULT_TOTAL_QUESTIONS = 4
+const ACTIVE_INTERVIEWS_REFRESH_MS = 10000
 
 type ActiveInterview = {
   match_id: number
@@ -94,7 +95,6 @@ type InterviewPanel = {
   completed: boolean
   summary: InterviewSummary | null
   streamError: string | null
-  endError: string | null
 }
 
 type RoleOption = {
@@ -118,7 +118,6 @@ function createPanel(interview: ActiveInterview): InterviewPanel {
     completed: false,
     summary: null,
     streamError: null,
-    endError: null,
   }
 }
 
@@ -299,38 +298,58 @@ export function RecruiterDashboardPage() {
         : null
       : Number.parseInt(selectedRoleId, 10)
 
-  useEffect(() => {
-    async function loadDashboard() {
+  const activeMatchIds = useMemo(
+    () => panelList.map((panel) => panel.interview.match_id),
+    [panelList],
+  )
+  const activeMatchKey = useMemo(() => activeMatchIds.join(','), [activeMatchIds])
+
+  const loadDashboard = useCallback(async (showLoading: boolean) => {
+    if (showLoading) {
       setIsLoading(true)
-      setLoadError(null)
+    }
+    setLoadError(null)
 
-      try {
-        const interviews = await fetchActiveInterviews()
+    try {
+      const interviews = await fetchActiveInterviews()
 
-        setPanels((current) => {
-          const next: Record<number, InterviewPanel> = {}
+      setPanels((current) => {
+        const next: Record<number, InterviewPanel> = {}
 
-          interviews.forEach((interview) => {
-            const existing = current[interview.match_id]
-            next[interview.match_id] = existing
-              ? { ...existing, interview }
-              : createPanel(interview)
-          })
-
-          return next
+        interviews.forEach((interview) => {
+          const existing = current[interview.match_id]
+          next[interview.match_id] = existing
+            ? { ...existing, interview }
+            : createPanel(interview)
         })
-      } catch (error) {
+
+        return next
+      })
+    } catch (error) {
+      if (showLoading) {
         setPanels({})
-        setLoadError(
-          getErrorMessage(error, 'We could not load active recruiter interviews right now.'),
-        )
-      } finally {
+      }
+      setLoadError(
+        getErrorMessage(error, 'We could not load active recruiter interviews right now.'),
+      )
+    } finally {
+      if (showLoading) {
         setIsLoading(false)
       }
     }
-
-    void loadDashboard()
   }, [])
+
+  useEffect(() => {
+    void loadDashboard(true)
+
+    const interval = window.setInterval(() => {
+      void loadDashboard(false)
+    }, ACTIVE_INTERVIEWS_REFRESH_MS)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [loadDashboard])
 
   useEffect(() => {
     if (selectedRoleId !== 'all') {
@@ -343,10 +362,16 @@ export function RecruiterDashboardPage() {
   }, [roleOptions, selectedRoleId])
 
   useEffect(() => {
-    const activeIds = new Set(panelList.map((panel) => panel.interview.match_id))
+    const activeIds = new Set(
+      activeMatchKey
+        ? activeMatchKey
+            .split(',')
+            .map((value) => Number.parseInt(value, 10))
+            .filter((value) => !Number.isNaN(value))
+        : [],
+    )
 
-    panelList.forEach((panel) => {
-      const matchId = panel.interview.match_id
+    activeIds.forEach((matchId) => {
       if (sourcesRef.current[matchId]) {
         return
       }
@@ -568,8 +593,7 @@ export function RecruiterDashboardPage() {
             ...current,
             [matchId]: {
               ...target,
-              streamError:
-                'Live updates paused. This repo currently streams per interview from the server, and the connection could not be maintained.',
+              streamError: 'Live stream connection dropped. Updates will resume if the connection recovers.',
             },
           }
         })
@@ -583,12 +607,14 @@ export function RecruiterDashboardPage() {
         delete sourcesRef.current[matchId]
       }
     })
+  }, [activeMatchKey])
 
+  useEffect(() => {
     return () => {
       Object.values(sourcesRef.current).forEach((source) => source.close())
       sourcesRef.current = {}
     }
-  }, [panelList])
+  }, [])
 
   useEffect(() => {
     visiblePanels.forEach((panel) => {
@@ -659,17 +685,6 @@ export function RecruiterDashboardPage() {
         ...current[matchId],
         injectText: value,
         injectError: null,
-      },
-    }))
-  }
-
-  function handleEndInterview(matchId: number) {
-    setPanels((current) => ({
-      ...current,
-      [matchId]: {
-        ...current[matchId],
-        endError:
-          'The current backend does not expose a recruiter end-interview endpoint yet, so this control cannot terminate the live session from client alone.',
       },
     }))
   }
@@ -847,12 +862,6 @@ export function RecruiterDashboardPage() {
                         </div>
                       ) : null}
 
-                      {panel.endError ? (
-                        <div className="rounded-[1.1rem] border border-warning/35 bg-warning/16 px-4 py-3 text-sm text-textPrimary">
-                          {panel.endError}
-                        </div>
-                      ) : null}
-
                       <div className="overflow-hidden rounded-[1.4rem] border border-[#332c28] bg-[#2c2522] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                           <p className="font-ui text-sm font-semibold uppercase tracking-[0.18em] text-[#dbc8bf]">
@@ -951,14 +960,6 @@ export function RecruiterDashboardPage() {
                           <p className="mt-3 text-sm text-error">{panel.injectError}</p>
                         ) : null}
                       </form>
-
-                      <button
-                        type="button"
-                        onClick={() => handleEndInterview(panel.interview.match_id)}
-                        className="font-ui inline-flex items-center justify-center rounded-full border border-error/35 bg-error/12 px-5 py-3 text-sm font-semibold text-textPrimary transition hover:bg-error/18"
-                      >
-                        End Interview
-                      </button>
                     </div>
                   </div>
                 </div>

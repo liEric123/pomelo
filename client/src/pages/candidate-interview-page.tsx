@@ -8,6 +8,8 @@ const RECORDING_DURATION_SECONDS = 120
 const BREAK_DURATION_SECONDS = 15
 const DEFAULT_TOTAL_QUESTIONS = 4
 const FRAME_CAPTURE_INTERVAL_MS = 5000
+const EMPTY_RESPONSE_FALLBACK =
+  'Candidate completed a video response without a written summary.'
 
 type InterviewPhase =
   | 'waiting'
@@ -80,13 +82,16 @@ function getFooterMessage(phase: InterviewPhase, hasQueuedPrompt: boolean) {
   return 'Prepare your response. The interview flow will guide each phase automatically.'
 }
 
-function toPrompt(message: InterviewQuestionMessage | InterviewFollowUpMessage): InterviewPrompt {
+function toPrompt(
+  message: InterviewQuestionMessage | InterviewFollowUpMessage,
+  currentIndex = 0,
+): InterviewPrompt {
   if (message.type === 'follow_up') {
     return {
       id: `follow-up-${crypto.randomUUID()}`,
       text: message.text,
       kind: 'follow_up',
-      index: 0,
+      index: currentIndex,
     }
   }
 
@@ -122,12 +127,13 @@ export function CandidateInterviewPage() {
   const [websocketError, setWebsocketError] = useState<string | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
-  const [hasFlaggedResponse, setHasFlaggedResponse] = useState(false)
+  const [responseDraft, setResponseDraft] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const socketRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const responseStartedAtRef = useRef<number | null>(null)
+  const responseDraftRef = useRef('')
   const reconnectCountRef = useRef(0)
   const manuallyClosedRef = useRef(false)
   const currentPromptRef = useRef<InterviewPrompt | null>(null)
@@ -154,7 +160,7 @@ export function CandidateInterviewPage() {
 
   function activatePrompt(nextPrompt: InterviewPrompt) {
     setCurrentPrompt(nextPrompt)
-    setHasFlaggedResponse(false)
+    setResponseDraft('')
     setQuestionCount(nextPrompt.index + 1)
     setQuestionTotal((currentTotal) =>
       Math.max(currentTotal, nextPrompt.index + 1, DEFAULT_TOTAL_QUESTIONS),
@@ -177,10 +183,11 @@ export function CandidateInterviewPage() {
     const elapsedSeconds = responseStartedAtRef.current
       ? Math.max(1, Math.round((Date.now() - responseStartedAtRef.current) / 1000))
       : 0
+    const answerText = responseDraftRef.current.trim() || EMPTY_RESPONSE_FALLBACK
 
     sendSocketMessage({
       type: 'answer',
-      text: '',
+      text: answerText,
       elapsed_seconds: elapsedSeconds,
     })
 
@@ -190,6 +197,10 @@ export function CandidateInterviewPage() {
   useEffect(() => {
     currentPromptRef.current = currentPrompt
   }, [currentPrompt])
+
+  useEffect(() => {
+    responseDraftRef.current = responseDraft
+  }, [responseDraft])
 
   useEffect(() => {
     phaseRef.current = phase
@@ -234,7 +245,7 @@ export function CandidateInterviewPage() {
             return
           }
 
-          const prompt = toPrompt(message)
+          const prompt = toPrompt(message, currentPromptRef.current?.index ?? 0)
 
           if (!currentPromptRef.current && phaseRef.current === 'waiting') {
             activatePrompt(prompt)
@@ -424,6 +435,8 @@ export function CandidateInterviewPage() {
     ((THINKING_DURATION_SECONDS - secondsRemaining) / THINKING_DURATION_SECONDS) * 100
   const ringDegrees = Math.max(0, Math.min(360, (thinkingProgress / 100) * 360))
   const footerMessage = getFooterMessage(phase, Boolean(queuedPrompt))
+  const canEditResponse =
+    phase === 'thinking' || phase === 'recording' || phase === 'waiting'
 
   return (
     <section className="mx-auto flex h-[calc(100svh-2rem)] min-h-0 max-w-7xl">
@@ -523,6 +536,38 @@ export function CandidateInterviewPage() {
                   </div>
                 ) : null}
               </div>
+
+              <div className="border-t border-border/80 pt-5">
+                <div className="rounded-[1.45rem] border border-border/80 bg-surfaceAlt px-5 py-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-ui text-sm font-semibold text-textPrimary">
+                        Written response summary
+                      </p>
+                      <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
+                        Add a short transcript or bullet summary while you answer. This text is
+                        sent with your response for grading and recruiter review.
+                      </p>
+                    </div>
+                    <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
+                      {responseDraft.trim().length} chars
+                    </span>
+                  </div>
+
+                  <textarea
+                    value={responseDraft}
+                    onChange={(event) => setResponseDraft(event.target.value)}
+                    disabled={!canEditResponse}
+                    placeholder="Summarize your answer, outcomes, metrics, tradeoffs, and the examples you are discussing..."
+                    className="font-ui mt-4 min-h-[180px] w-full rounded-[1.35rem] border border-border bg-surface px-4 py-3 text-sm leading-6 text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20 disabled:cursor-not-allowed disabled:opacity-70"
+                  />
+
+                  <p className="font-ui mt-3 text-xs leading-5 text-textSecondary">
+                    If you leave this blank, Pomelo will send a generic fallback note and the
+                    quality of grading will be lower.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -584,14 +629,12 @@ export function CandidateInterviewPage() {
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setHasFlaggedResponse(true)}
-                disabled={hasFlaggedResponse || phase === 'completed'}
-                className="font-ui inline-flex w-full items-center justify-center rounded-[1rem] border border-border bg-surface px-5 py-3 text-sm font-semibold text-[#b07a56] shadow-[0_12px_24px_rgba(139,111,99,0.08)] transition hover:border-accentSecondary hover:bg-accentSecondary/12 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {hasFlaggedResponse ? 'Response flagged' : 'Flag My Response'}
-              </button>
+              <div className="rounded-[1rem] border border-border bg-surface px-4 py-3 shadow-[0_12px_24px_rgba(139,111,99,0.08)]">
+                <p className="font-ui text-sm leading-6 text-textSecondary">
+                  Your camera preview and written summary stay in sync while you answer. Keep this
+                  page open until the interview is fully complete.
+                </p>
+              </div>
 
               <button
                 type="button"
