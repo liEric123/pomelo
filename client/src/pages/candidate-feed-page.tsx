@@ -269,9 +269,17 @@ export function CandidateFeedPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="font-ui rounded-full border border-border bg-surfaceAlt px-4 py-2 text-sm font-medium text-textPrimary">
             {comeBackTomorrow
-              ? 'Come back tomorrow'
+              ? "You've used today's swipes"
               : `${swipesRemaining} swipes remaining`}
           </div>
+          {comeBackTomorrow ? (
+            <Link
+              to="/candidate/matches"
+              className="font-ui inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-4 py-2 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+            >
+              View your matches →
+            </Link>
+          ) : null}
           {swipeError ? (
             <div className="font-ui rounded-full border border-error/30 bg-error/10 px-4 py-2 text-sm font-medium text-error">
               {swipeError}

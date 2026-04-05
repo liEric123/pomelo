@@ -138,6 +138,7 @@ export function CandidateSignupPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [result, setResult] = useState<CandidateSignupResponse | null>(null)
+  const [autoLoginError, setAutoLoginError] = useState<string | null>(null)
   const [animatedScore, setAnimatedScore] = useState(0)
 
   const score = formatScore(result?.score ?? 0)
@@ -220,6 +221,7 @@ export function CandidateSignupPage() {
 
     setIsSubmitting(true)
     setErrors({})
+    setAutoLoginError(null)
 
     const formData = new FormData()
     formData.append('name', name.trim())
@@ -231,17 +233,16 @@ export function CandidateSignupPage() {
 
     try {
       const response = await submitCandidateSignup(formData)
+      setResult(response)
+
       // Auto-login: backend always creates an AuthUser (password or default)
       try {
         const loginPassword = password || 'pomelo2026'
         await login(email.trim(), loginPassword)
-        setResult(response)
-        // Redirect immediately — no need to show success panel
-        navigate('/candidate/feed', { replace: true })
-        return
       } catch {
-        // Login failed (shouldn't happen, but don't break signup UX)
-        setResult(response)
+        setAutoLoginError(
+          'Your profile is ready, but we could not sign you in automatically. Continue to login to enter the feed.',
+        )
       }
     } catch (error) {
       setErrors({
@@ -349,12 +350,20 @@ export function CandidateSignupPage() {
               ))}
             </div>
 
+            {autoLoginError ? (
+              <div className="mt-6 rounded-[1.25rem] border border-warning/35 bg-warning/16 px-4 py-3 text-sm text-textPrimary">
+                {autoLoginError}
+              </div>
+            ) : null}
+
             <button
               type="button"
-              onClick={() => navigate('/candidate/feed')}
+              onClick={() =>
+                navigate(autoLoginError ? '/login' : '/candidate/feed')
+              }
               className="font-ui mt-10 inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-6 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
             >
-              Start Swiping
+              {autoLoginError ? 'Continue to Login' : 'Start Swiping'}
             </button>
           </div>
         </div>

@@ -41,7 +41,7 @@ function getStatusMeta(status: MatchStatus) {
       return {
         label: 'Pending',
         classes: 'border-warning/35 bg-warning/15 text-textPrimary',
-        description: 'Matched — interview will be ready soon.',
+        description: 'Your interview is ready. Click below to begin.',
       }
     case 'interviewing':
       return {
