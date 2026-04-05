@@ -6,7 +6,6 @@ const candidateLinks = [
   { to: '/candidate/signup', label: 'Signup' },
   { to: '/candidate/feed', label: 'Feed' },
   { to: '/candidate/matches', label: 'Matches' },
-  { to: '/candidate/interview/demo-match', label: 'Interview' },
 ]
 
 const recruiterLinks = [

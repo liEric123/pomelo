@@ -225,30 +225,16 @@ async function fetchActiveInterviews() {
 }
 
 async function fetchComparison(roleId: number) {
-  try {
-    return await apiFetch<CompareResponse>(`/api/recruiter/compare?role_id=${roleId}`)
-  } catch {
-    return apiFetch<CompareResponse>(`/api/recruiter/roles/${roleId}/compare`)
-  }
+  return apiFetch<CompareResponse>(`/api/recruiter/roles/${roleId}/compare`)
 }
 
 async function injectQuestion(matchId: number, questionText: string) {
-  try {
-    return await apiFetch<{ queued: boolean }>('/api/interview/inject', {
-      method: 'POST',
-      body: {
-        match_id: matchId,
-        question_text: questionText,
-      },
-    })
-  } catch {
-    return apiFetch<{ queued: boolean }>(`/api/interviews/${matchId}/inject`, {
-      method: 'POST',
-      body: {
-        question_text: questionText,
-      },
-    })
-  }
+  return apiFetch<{ queued: boolean }>(`/api/interviews/${matchId}/inject`, {
+    method: 'POST',
+    body: {
+      question_text: questionText,
+    },
+  })
 }
 
 export function RecruiterDashboardPage() {
