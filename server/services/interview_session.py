@@ -1,9 +1,9 @@
 """
-In-memory interview session state and per-match SSE event queues.
+In-memory interview session state and per-connection SSE event queues.
 
 One InterviewSession is created per active match when the candidate connects.
-The SSE queue for each match is kept alive until the recruiter disconnects,
-so final events (interview_complete) are not lost.
+Each recruiter SSE subscriber gets its own queue so multiple dashboard tabs
+can observe the same interview without stealing events from one another.
 """
 
 import asyncio
@@ -34,7 +34,7 @@ class InterviewSession:
 # Module-level singletons — intentionally simple for hackathon speed.
 # All access must be from the same process (single-worker uvicorn).
 _sessions: dict[int, InterviewSession] = {}
-_sse_queues: dict[int, asyncio.Queue] = {}
+_sse_queues: dict[int, list[asyncio.Queue]] = {}
 
 
 def create_session(
@@ -52,9 +52,6 @@ def create_session(
         questions=questions,
     )
     _sessions[match_id] = sess
-    # Preserve an existing SSE queue — recruiter may have connected before the candidate.
-    if match_id not in _sse_queues:
-        _sse_queues[match_id] = asyncio.Queue()
     return sess
 
 
@@ -67,9 +64,17 @@ def remove_session(match_id: int) -> None:
     _sessions.pop(match_id, None)
 
 
-def remove_sse_queue(match_id: int) -> None:
-    """Called after the recruiter SSE connection closes."""
-    _sse_queues.pop(match_id, None)
+def remove_sse_queue(match_id: int, queue: asyncio.Queue) -> None:
+    """Remove one recruiter SSE subscriber queue for a match."""
+    queues = _sse_queues.get(match_id)
+    if not queues:
+        return
+    try:
+        queues.remove(queue)
+    except ValueError:
+        return
+    if not queues:
+        _sse_queues.pop(match_id, None)
 
 
 def push_inject(match_id: int, question_text: str) -> bool:
@@ -85,11 +90,22 @@ def push_inject(match_id: int, question_text: str) -> bool:
 
 
 async def emit_event(match_id: int, event_type: str, data: dict) -> None:
-    """Push an event onto the recruiter SSE queue for this match."""
-    q = _sse_queues.get(match_id)
-    if q is not None:
-        await q.put({"type": event_type, "data": data})
+    """Push an event to every active recruiter SSE subscriber for this match."""
+    queues = list(_sse_queues.get(match_id, []))
+    event = {"type": event_type, "data": data}
+    for queue in queues:
+        await queue.put(event)
 
 
 def get_sse_queue(match_id: int) -> Optional[asyncio.Queue]:
-    return _sse_queues.get(match_id)
+    queues = _sse_queues.get(match_id)
+    if not queues:
+        return None
+    return queues[0]
+
+
+def ensure_sse_queue(match_id: int) -> asyncio.Queue:
+    """Create and register one SSE queue for a recruiter connection."""
+    queue = asyncio.Queue()
+    _sse_queues.setdefault(match_id, []).append(queue)
+    return queue

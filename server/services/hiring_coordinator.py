@@ -9,8 +9,10 @@ Low-level errors (ValueError, anthropic.APIError, json.JSONDecodeError, etc.)
 are caught internally and re-raised as one of these domain types.
 """
 
+import asyncio
 import json
 import random
+from dataclasses import dataclass, field
 from datetime import datetime, time, timezone
 
 import anthropic
@@ -24,6 +26,7 @@ from utils.resume_parser import extract_text
 from services.scoring_service import grade_resume, keyword_match as _keyword_match
 from services.resume_service import generate_skill_vector, zero_skill_vector
 from services.matching_service import build_role_vector, cosine_similarity
+from services.grading_service import grade_answer
 from services.question_service import generate_simul_questions
 import services.interview_session as session_mgr
 import services.summary_service as summary_service
@@ -459,8 +462,18 @@ def start_interview(match_id: int, db: Session) -> dict:
     # or inserting another first-question message.
     existing_sess = session_mgr.get_session(match_id)
     if existing_sess is not None:
+        if existing_sess.awaiting_injected:
+            return {
+                "type": "follow_up",
+                "text": existing_sess.current_injected_question,
+                "emit_transcript": False,
+            }
         current_q = existing_sess.questions[existing_sess.current_index]
-        return _question_payload(current_q, index=existing_sess.current_index)
+        return {
+            "type": "question",
+            **_question_payload(current_q, index=existing_sess.current_index),
+            "emit_transcript": False,
+        }
 
     role = db.get(Role, match.role_id)
     if not role:
@@ -498,7 +511,11 @@ def start_interview(match_id: int, db: Session) -> dict:
         questions=questions,
     )
 
-    return _question_payload(first_q, index=0)
+    return {
+        "type": "question",
+        **_question_payload(first_q, index=0),
+        "emit_transcript": True,
+    }
 
 
 def complete_interview(match_id: int, db: Session) -> dict:
@@ -541,7 +558,216 @@ def complete_interview(match_id: int, db: Session) -> dict:
     except (json.JSONDecodeError, KeyError, TypeError) as e:
         raise AIServiceError(f"Summary response invalid: {e}") from e
 
-    # Persist to Match
+    _persist_completed_match(match, summary, db)
+    session_mgr.remove_session(match_id)
+    return summary
+
+
+# ---------------------------------------------------------------------------
+# Per-answer processing (called from WebSocket route)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AnswerResult:
+    """What the WebSocket route should send after one answer is processed.
+
+    next_action: "follow_up" | "question" | "complete"
+    graded_question and grade are passed back so the route can fire the
+    background follow-up suggestion task without re-reading session state.
+    """
+    next_action: str
+    follow_up_text: str | None = None
+    next_question: dict | None = None
+    summary: dict | None = None
+    graded_question: dict = field(default_factory=dict)
+    grade: dict = field(default_factory=dict)
+
+
+async def process_interview_answer(
+    match_id: int,
+    answer_text: str,
+    elapsed: int,
+    db: Session,
+) -> AnswerResult:
+    """Process one candidate answer end-to-end.
+
+    Steps:
+      1. Determine which question is being answered (scheduled or injected)
+      2. Persist the answer message
+      3. Grade the answer (async-wrapped sync AI call)
+      4. Update the answer message with grade fields
+      5. Record elapsed time in session state
+      6. Emit transcript and score events to the recruiter SSE stream
+      7. Decide and return what to send back to the candidate:
+           - An injected follow-up question from the queue
+           - The next scheduled question
+           - Interview completion (triggers summary generation)
+
+    Raises:
+      InvalidInterviewState — no active session for this match
+    """
+    sess = session_mgr.get_session(match_id)
+    if sess is None:
+        raise InvalidInterviewState(f"No active session for match {match_id}.")
+
+    # Determine which question is being answered
+    if sess.awaiting_injected:
+        current_q: dict = {
+            "id": "injected",
+            "text": sess.current_injected_question,
+            "category": "follow_up",
+            "expected_signals": [],
+        }
+        q_index = None
+    else:
+        q_index = sess.current_index
+        current_q = sess.questions[q_index]
+
+    # Persist answer
+    answer_msg = InterviewMessage(
+        match_id=match_id,
+        role=MessageRole.answer,
+        content=answer_text,
+        question_index=q_index,
+        recruiter_injected=sess.awaiting_injected,
+    )
+    db.add(answer_msg)
+    db.commit()
+    db.refresh(answer_msg)
+
+    # Grade (synchronous AI call, run in thread to avoid blocking the event loop)
+    role = sess.role
+    try:
+        grade = await asyncio.to_thread(
+            grade_answer,
+            role_title=role.title,
+            company_name=sess.company_name,
+            category=current_q["category"],
+            question_text=current_q["text"] or answer_text,
+            expected_signals=", ".join(current_q.get("expected_signals") or []),
+            candidate_answer=answer_text,
+            seconds=elapsed,
+            max_seconds=session_mgr.MAX_SECONDS_PER_ANSWER,
+        )
+    except Exception as e:
+        grade = {"score": 0.0, "rationale": str(e), "flag": None, "recruiter_hint": "Grading failed."}
+
+    # Persist grade fields onto the answer message
+    answer_msg.score = grade.get("score", 0.0)
+    answer_msg.score_label = _score_label(grade.get("score", 0.0))
+    answer_msg.flags = [grade["flag"]] if grade.get("flag") else []
+    answer_msg.grade_reasoning = grade.get("rationale")
+    db.add(answer_msg)
+    db.commit()
+
+    # Record timing
+    sess.elapsed_times.append(elapsed)
+
+    # Emit to recruiter SSE
+    await session_mgr.emit_event(match_id, "transcript", {
+        "question_id": current_q["id"], "text": answer_text, "role": "answer",
+    })
+    await session_mgr.emit_event(match_id, "score", {
+        "question_id": current_q["id"],
+        "score": grade.get("score"),
+        "flag": grade.get("flag"),
+        "recruiter_hint": grade.get("recruiter_hint"),
+    })
+
+    # Clear injected-answer flag before deciding next step
+    if sess.awaiting_injected:
+        sess.awaiting_injected = False
+
+    # Injected question takes priority over scheduled advancement
+    if sess.inject_queue:
+        injected_text = sess.inject_queue.popleft()
+        inject_msg = InterviewMessage(
+            match_id=match_id,
+            role=MessageRole.follow_up,
+            content=injected_text,
+            recruiter_injected=True,
+        )
+        db.add(inject_msg)
+        db.commit()
+        sess.awaiting_injected = True
+        sess.current_injected_question = injected_text
+        await session_mgr.emit_event(match_id, "transcript", {
+            "question_id": None, "text": injected_text, "role": "follow_up",
+        })
+        return AnswerResult(
+            next_action="follow_up",
+            follow_up_text=injected_text,
+            graded_question=current_q,
+            grade=grade,
+        )
+
+    # Advance to next scheduled question
+    sess.current_index += 1
+
+    if sess.current_index < len(sess.questions):
+        next_q = sess.questions[sess.current_index]
+        q_msg = InterviewMessage(
+            match_id=match_id,
+            role=MessageRole.question,
+            content=next_q["text"],
+            question_index=sess.current_index,
+        )
+        db.add(q_msg)
+        db.commit()
+        await session_mgr.emit_event(match_id, "transcript", {
+            "question_id": next_q["id"], "text": next_q["text"], "role": "question",
+        })
+        return AnswerResult(
+            next_action="question",
+            next_question=_question_payload(next_q, sess.current_index),
+            graded_question=current_q,
+            grade=grade,
+        )
+
+    # All questions answered — generate summary and complete
+    sess.is_complete = True
+    try:
+        summary = await asyncio.to_thread(complete_interview, match_id, db)
+    except AIServiceError:
+        summary = {
+            "verdict": "MAYBE",
+            "one_liner": "Summary generation failed.",
+            "scores_weighted": None,
+        }
+        match = db.get(Match, match_id)
+        if match is not None:
+            _persist_completed_match(match, summary, db)
+        session_mgr.remove_session(match_id)
+    await session_mgr.emit_event(match_id, "interview_complete", {"summary": summary})
+    return AnswerResult(
+        next_action="complete",
+        summary=summary,
+        graded_question=current_q,
+        grade=grade,
+    )
+
+
+def inject_recruiter_question(match_id: int, question_text: str) -> None:
+    """Queue a recruiter-injected follow-up question for the active interview.
+
+    Raises:
+      NotFoundError — no active (non-completed) session for this match
+    """
+    ok = session_mgr.push_inject(match_id, question_text)
+    if not ok:
+        raise NotFoundError(f"No active interview session for match {match_id}.")
+
+
+def _score_label(score: float) -> str:
+    if score >= 0.8:
+        return "strong"
+    if score >= 0.5:
+        return "adequate"
+    return "weak"
+
+
+def _persist_completed_match(match: Match, summary: dict, db: Session) -> None:
+    """Persist final interview results onto a match and mark it completed."""
     now = _utcnow()
     match.status = MatchStatus.completed
     match.interview_summary = json.dumps(summary)
@@ -550,9 +776,6 @@ def complete_interview(match_id: int, db: Session) -> dict:
     match.completed_at = now
     db.add(match)
     db.commit()
-
-    session_mgr.remove_session(match_id)
-    return summary
 
 
 def _generate_questions(role: Role, candidate: Candidate, company_name: str) -> list[dict]:
