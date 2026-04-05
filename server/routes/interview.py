@@ -91,7 +91,7 @@ async def interview_websocket(
 
     # ----- initialize session -----
     try:
-        opening_message = await asyncio.to_thread(start_interview, match_id, db)
+        opening_message = start_interview(match_id, db)
     except NotFoundError as e:
         await websocket.send_json({"type": "error", "detail": str(e)})
         await websocket.close(code=4004)
