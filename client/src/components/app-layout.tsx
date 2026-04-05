@@ -28,6 +28,10 @@ export function AppLayout() {
   const audience = location.pathname.startsWith('/recruiter')
     ? 'recruiter'
     : 'candidate'
+  const hideTopBar = location.pathname.startsWith('/candidate/interview/')
+  const interviewHeaderClasses = hideTopBar
+    ? 'pointer-events-auto fixed inset-x-0 top-0 z-30 -translate-y-[calc(100%-0.9rem)] border-b border-border/70 bg-background/82 opacity-0 backdrop-blur-xl transition duration-300 group-hover/interview-header:translate-y-0 group-hover/interview-header:opacity-100 group-focus-within/interview-header:translate-y-0 group-focus-within/interview-header:opacity-100'
+    : 'sticky top-0 z-10 border-b border-border/70 bg-background/75 backdrop-blur-xl'
 
   const links = useMemo(
     () => (audience === 'candidate' ? candidateLinks : recruiterLinks),
@@ -36,65 +40,138 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-pomelo-wash text-textPrimary">
-      <header className="sticky top-0 z-10 border-b border-border/70 bg-background/75 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 px-4 py-4 shadow-glass sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.32em] text-textSecondary">
-                Pomelo
-              </p>
-              <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-[2.3rem]">
-                AI-assisted hiring platform
-              </h1>
-              <p className="mt-4 max-w-2xl font-ui text-sm leading-6 text-textSecondary">
-                Structured matching, guided interviews, and recruiter-side live decision support.
-              </p>
-            </div>
+      {hideTopBar ? (
+        <div className="group/interview-header fixed inset-x-0 top-0 z-30">
+          <div className="absolute inset-x-0 top-0 h-10" />
 
-            <div className="inline-flex w-full rounded-full border border-border bg-surfaceAlt p-1 shadow-sm sm:w-auto">
-              <button
-                type="button"
-                onClick={() => navigate('/candidate/signup')}
-                className={[
-                  'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
-                  audience === 'candidate'
-                    ? 'bg-accentPrimary text-navButtonText shadow-sm'
-                    : 'text-textSecondary hover:text-textPrimary',
-                ].join(' ')}
-              >
-                Candidate
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/recruiter/dashboard')}
-                className={[
-                  'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
-                  audience === 'recruiter'
-                    ? 'bg-accentSecondary text-textPrimary shadow-sm'
-                    : 'text-textSecondary hover:text-textPrimary',
-                ].join(' ')}
-              >
-                Recruiter
-              </button>
-            </div>
-          </div>
+          <header className={interviewHeaderClasses}>
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+              <div className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 px-4 py-4 shadow-glass sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.32em] text-textSecondary">
+                    Pomelo
+                  </p>
+                  <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-[2.3rem]">
+                    AI-assisted hiring platform
+                  </h1>
+                  <p className="mt-4 max-w-2xl font-ui text-sm leading-6 text-textSecondary">
+                    Structured matching, guided interviews, and recruiter-side live decision support.
+                  </p>
+                </div>
 
-          <nav className="flex flex-wrap gap-2 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
-            {links.map((link) => (
-              <NavLink
-                key={link.to}
-                to={link.to}
-                className={({ isActive }) => getNavClasses(isActive)}
-              >
-                {link.label}
-              </NavLink>
-            ))}
-          </nav>
+                <div className="inline-flex w-full rounded-full border border-border bg-surfaceAlt p-1 shadow-sm sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/candidate/signup')}
+                    className={[
+                      'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
+                      audience === 'candidate'
+                        ? 'bg-accentPrimary text-navButtonText shadow-sm'
+                        : 'text-textSecondary hover:text-textPrimary',
+                    ].join(' ')}
+                  >
+                    Candidate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/recruiter/dashboard')}
+                    className={[
+                      'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
+                      audience === 'recruiter'
+                        ? 'bg-accentSecondary text-textPrimary shadow-sm'
+                        : 'text-textSecondary hover:text-textPrimary',
+                    ].join(' ')}
+                  >
+                    Recruiter
+                  </button>
+                </div>
+              </div>
+
+              <nav className="flex flex-wrap gap-2 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
+                {links.map((link) => (
+                  <NavLink
+                    key={link.to}
+                    to={link.to}
+                    className={({ isActive }) => getNavClasses(isActive)}
+                  >
+                    {link.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          </header>
         </div>
-      </header>
+      ) : (
+        <header className={interviewHeaderClasses}>
+          <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 px-4 py-4 shadow-glass sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.32em] text-textSecondary">
+                  Pomelo
+                </p>
+                <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-[2.3rem]">
+                  AI-assisted hiring platform
+                </h1>
+                <p className="mt-4 max-w-2xl font-ui text-sm leading-6 text-textSecondary">
+                  Structured matching, guided interviews, and recruiter-side live decision support.
+                </p>
+              </div>
 
-      <main className="mx-auto flex w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="w-full rounded-[2rem] border border-border bg-surface/90 p-8 shadow-panel">
+              <div className="inline-flex w-full rounded-full border border-border bg-surfaceAlt p-1 shadow-sm sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => navigate('/candidate/signup')}
+                  className={[
+                    'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
+                    audience === 'candidate'
+                      ? 'bg-accentPrimary text-navButtonText shadow-sm'
+                      : 'text-textSecondary hover:text-textPrimary',
+                  ].join(' ')}
+                >
+                  Candidate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/recruiter/dashboard')}
+                  className={[
+                    'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
+                    audience === 'recruiter'
+                      ? 'bg-accentSecondary text-textPrimary shadow-sm'
+                      : 'text-textSecondary hover:text-textPrimary',
+                  ].join(' ')}
+                >
+                  Recruiter
+                </button>
+              </div>
+            </div>
+
+            <nav className="flex flex-wrap gap-2 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
+              {links.map((link) => (
+                <NavLink
+                  key={link.to}
+                  to={link.to}
+                  className={({ isActive }) => getNavClasses(isActive)}
+                >
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        </header>
+      )}
+
+      <main
+        className={[
+          'mx-auto flex w-full max-w-7xl px-4 sm:px-6 lg:px-8',
+          hideTopBar ? 'py-4' : 'py-12',
+        ].join(' ')}
+      >
+        <div
+          className={[
+            'w-full rounded-[2rem] border border-border bg-surface/90 shadow-panel',
+            hideTopBar ? 'p-4 sm:p-5' : 'p-8',
+          ].join(' ')}
+        >
           <Outlet />
         </div>
       </main>
