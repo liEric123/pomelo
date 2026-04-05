@@ -228,17 +228,15 @@ export function CandidateMatchesPage() {
                   </p>
 
                   <div className="mt-auto pt-6">
-                    {match.status === 'interviewing' ? (
+                    {match.status === 'interviewing' || match.status === 'pending' ? (
                       <button
                         type="button"
                         onClick={() =>
-                          navigate(
-                            `/candidate/interview/${match.match_id}`,
-                          )
+                          navigate(`/candidate/interview/${match.match_id}`)
                         }
                         className="font-ui inline-flex w-full items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
                       >
-                        Continue interview
+                        {match.status === 'interviewing' ? 'Continue interview' : 'Begin interview'}
                       </button>
                     ) : (
                       <div className="rounded-2xl border border-border bg-surfaceAlt px-4 py-3">

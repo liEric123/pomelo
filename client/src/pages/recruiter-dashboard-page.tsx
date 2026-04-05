@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { subscribeDashboard } from '../lib/sse'
 
@@ -321,6 +322,12 @@ export function RecruiterDashboardPage() {
           next[interview.match_id] = existing
             ? { ...existing, interview }
             : createPanel(interview)
+        })
+
+        Object.values(current).forEach((panel) => {
+          if (panel.completed && !next[panel.interview.match_id]) {
+            next[panel.interview.match_id] = panel
+          }
         })
 
         return next
@@ -717,19 +724,19 @@ export function RecruiterDashboardPage() {
     <section className="space-y-6">
       <div className="rounded-[2rem] border border-border bg-surfaceAlt/90 p-6 shadow-panel sm:p-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
-            <p className="type-kicker">Recruiter mission control</p>
-            <h2 className="type-display-page mt-4">
-              Monitor live interviews, catch weak signals early, and compare candidates without losing the thread.
+          <div>
+            <p className="type-kicker">Live interviews</p>
+            <h2 className="type-display-section mt-3">
+              Active interview monitor
             </h2>
-            <p className="type-body mt-4 max-w-2xl">
-              This dashboard follows the current Pomelo recruiter flow: active interviews come from the live recruiter API, transcripts stream in real time, and recruiter actions stay scoped per match.
+            <p className="type-body mt-2 max-w-xl">
+              Interviews in progress appear below automatically. Each panel streams transcript, scores, and candidate frames in real time.
             </p>
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row xl:w-auto">
-            <label className="flex min-w-[240px] flex-col gap-2">
-              <span className="type-label">Role filter</span>
+            <label className="flex min-w-[220px] flex-col gap-2">
+              <span className="type-label">Filter by role</span>
               <select
                 value={selectedRoleId}
                 onChange={(event) => {
@@ -738,7 +745,7 @@ export function RecruiterDashboardPage() {
                 }}
                 className="font-ui rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-textPrimary outline-none transition focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20"
               >
-                <option value="all">All active roles</option>
+                <option value="all">All roles</option>
                 {roleOptions.map((role) => (
                   <option key={role.id} value={role.id}>
                     {role.label} ({role.count})
@@ -747,13 +754,23 @@ export function RecruiterDashboardPage() {
               </select>
             </label>
 
-            <button
-              type="button"
-              onClick={() => void handleOpenCompare()}
-              className="font-ui inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
-            >
-              Compare Candidates
-            </button>
+            <div className="flex items-end gap-3">
+              <button
+                type="button"
+                onClick={() => void loadDashboard(false)}
+                disabled={isLoading}
+                className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surface px-5 py-3 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12 disabled:opacity-50"
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleOpenCompare()}
+                className="font-ui inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+              >
+                Compare Candidates
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -999,11 +1016,17 @@ export function RecruiterDashboardPage() {
         <div className="rounded-[2rem] border border-border bg-surface p-10 shadow-panel">
           <p className="type-kicker">No live interviews</p>
           <h3 className="type-display-section mt-4">
-            There are no active interviews in the current recruiter stream.
+            No interviews in progress
           </h3>
-          <p className="type-body mt-4 max-w-3xl">
-            Once a recruiter-created match enters the interviewing state, it will appear here with transcript updates, grading signals, candidate frames, and comparison support.
+          <p className="type-body mt-4 max-w-xl">
+            When a candidate starts an interview, their panel will appear here with a live transcript, grading signals, and camera frames. Manage roles and matches from the Roles page.
           </p>
+          <Link
+            to="/recruiter/roles"
+            className="font-ui mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+          >
+            Go to Roles
+          </Link>
         </div>
       )}
 
