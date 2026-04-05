@@ -834,10 +834,10 @@ export function RecruiterDashboardPage() {
                           <div className="flex aspect-[4/5] items-center justify-center px-4 text-center">
                             <div>
                               <p className="font-ui text-sm font-semibold text-textPrimary">
-                                Frame preview
+                                Live video preview
                               </p>
                               <p className="mt-2 text-xs leading-5 text-textSecondary">
-                                Waiting for the next camera frame from the live interview stream.
+                                Waiting for the live interview preview to begin.
                               </p>
                             </div>
                           </div>

@@ -7,7 +7,7 @@ const THINKING_DURATION_SECONDS = 20
 const RECORDING_DURATION_SECONDS = 120
 const BREAK_DURATION_SECONDS = 15
 const DEFAULT_TOTAL_QUESTIONS = 4
-const FRAME_CAPTURE_INTERVAL_MS = 5000
+const FRAME_CAPTURE_INTERVAL_MS = 200
 const EMPTY_RESPONSE_FALLBACK =
   'Candidate completed a video response without a written summary.'
 
@@ -385,7 +385,12 @@ export function CandidateInterviewPage() {
   }, [currentPrompt, finishRecording, phase, queuedPrompt])
 
   useEffect(() => {
-    if (phase !== 'recording' || !cameraReady || !videoRef.current || !canvasRef.current) {
+    if (
+      (phase !== 'thinking' && phase !== 'recording' && phase !== 'break') ||
+      !cameraReady ||
+      !videoRef.current ||
+      !canvasRef.current
+    ) {
       return
     }
 
@@ -453,7 +458,7 @@ export function CandidateInterviewPage() {
               </div>
 
               <div className="max-w-4xl pt-1">
-                <h2 className="font-display text-[1.55rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[2rem]">
+                <h2 className="font-display text-[1.35rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[1.7rem]">
                   {currentPrompt?.text ??
                     'Connecting to your interview session and preparing the first question.'}
                 </h2>

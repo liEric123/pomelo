@@ -707,6 +707,22 @@ SWIPES = [
     },
     {
         "candidate_alias": "alex_rivera",
+        "role_alias": "openai_applied_ai",
+        "candidate_direction": SwipeDirection.like,
+        "candidate_swiped_at": BASE_TIME - timedelta(days=2, hours=4),
+        "recruiter_direction": SwipeDirection.like,
+        "recruiter_swiped_at": BASE_TIME - timedelta(days=2, hours=1),
+        "keyword_score": 0.84,
+        "keyword_reasoning": (
+            "Strong product engineering background with clear React, TypeScript, API, "
+            "PostgreSQL, and AWS overlap. Less direct ML depth than the role ideal, but "
+            "solid evidence of shipping product workflows end to end."
+        ),
+        "keyword_approved": True,
+        "created_at": BASE_TIME - timedelta(days=2, hours=4),
+    },
+    {
+        "candidate_alias": "alex_rivera",
         "role_alias": "uhg_member_experience",
         "candidate_direction": SwipeDirection.like,
         "candidate_swiped_at": BASE_TIME - timedelta(days=1, hours=10),
@@ -724,6 +740,52 @@ SWIPES = [
 ]
 
 MATCHES = [
+    {
+        "candidate_alias": "alex_rivera",
+        "role_alias": "openai_applied_ai",
+        "status": MatchStatus.completed,
+        "matched_at": BASE_TIME - timedelta(days=2),
+        "completed_at": BASE_TIME - timedelta(days=1, hours=20),
+        "final_score": 0.81,
+        "recommendation": "advance",
+        "interview_summary": json.dumps(
+            {
+                "behavioral_score": 0.83,
+                "communication_score": 0.84,
+                "concerns": [
+                    "Has shipped product features around AI-adjacent workflows, but direct model evaluation depth is still lighter than his core full-stack experience.",
+                    "Some answers emphasized practical product instincts over formal experimentation frameworks and benchmarking rigor.",
+                ],
+                "confidence": 0.79,
+                "flags_summary": [],
+                "interviewer_notes": {
+                    "do_not_ask_again": [
+                        "Cross-functional rollout ownership",
+                        "Production debugging under time pressure",
+                    ],
+                    "suggested_opener": (
+                        "Ask Alex to design an evaluation loop for an LLM feature where product quality and latency both matter."
+                    ),
+                    "topics_to_probe": [
+                        "How he would structure offline versus online evaluation for a new AI workflow",
+                        "Where he would want support from ML specialists versus owning implementation himself",
+                    ],
+                },
+                "one_liner": (
+                    "Strong product-minded engineer with credible applied-AI adjacency and the delivery maturity to ramp quickly in an Applied AI role."
+                ),
+                "scores_weighted": 0.81,
+                "strengths": [
+                    "Clear ownership of end-to-end product delivery across API, data, and frontend layers",
+                    "Strong communication and pragmatic debugging instincts grounded in real production work",
+                    "Good judgment about rollout trust, instrumentation, and user-facing quality signals",
+                ],
+                "technical_score": 0.79,
+                "verdict": "ADVANCE",
+            },
+            sort_keys=True,
+        ),
+    },
     {
         "candidate_alias": "alex_rivera",
         "role_alias": "uhg_member_experience",
@@ -803,6 +865,103 @@ MATCHES = [
 ]
 
 INTERVIEW_MESSAGES = [
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.question,
+        "content": COMPANIES[0]["roles"][0]["questions"][0],
+        "question_index": 0,
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=54),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.answer,
+        "content": (
+            "At my last company I led a workflow that summarized account activity for customer success managers. "
+            "I owned the API layer, prompt orchestration, and the React surface where teams reviewed outputs. "
+            "We tracked acceptance rate, edit rate, and the percentage of summaries that needed manual correction "
+            "before sharing them with customers, and we used those signals to tighten prompts and fallback logic."
+        ),
+        "question_index": 0,
+        "score": 0.86,
+        "score_label": "strong",
+        "flags": [],
+        "grade_reasoning": "Clear end-to-end ownership with concrete product metrics and iteration loop.",
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=47),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.question,
+        "content": COMPANIES[0]["roles"][0]["questions"][1],
+        "question_index": 1,
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=42),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.answer,
+        "content": (
+            "I usually start by making the request testable. I translate the vague ask into a few user jobs, define what failure looks like, "
+            "and build a small set of examples that represent the happy path plus likely edge cases. From there I separate offline checks "
+            "like rubric scoring or pairwise review from online metrics like task completion, edits, latency, and support tickets."
+        ),
+        "question_index": 1,
+        "score": 0.82,
+        "score_label": "strong",
+        "flags": [],
+        "grade_reasoning": "Strong product framing with concrete evaluation structure and rollout metrics.",
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=35),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.question,
+        "content": COMPANIES[0]["roles"][0]["questions"][2],
+        "question_index": 2,
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=29),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.answer,
+        "content": (
+            "One service I owned became too slow after we added heavier enrichment steps. I profiled where time was going, moved repeated lookups "
+            "behind caching, tightened a couple of expensive database queries, and added structured timing logs around the slowest steps. "
+            "That got our p95 down enough that the feature felt reliable again without having to remove useful context."
+        ),
+        "question_index": 2,
+        "score": 0.79,
+        "score_label": "strong",
+        "flags": [],
+        "grade_reasoning": "Good production ownership and latency reasoning with credible operational detail.",
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=22),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.question,
+        "content": COMPANIES[0]["roles"][0]["questions"][4],
+        "question_index": 4,
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=16),
+    },
+    {
+        "match_key": ("alex_rivera", "openai_applied_ai"),
+        "role": MessageRole.answer,
+        "content": (
+            "I would instrument it so different teams can trust it for different reasons: product sees adoption and completion, engineering sees latency "
+            "and failure budgets, and safety or QA sees sampled outputs with reasons for overrides. I also like staged rollout flags so we can compare "
+            "behavior across cohorts before making the feature fully default."
+        ),
+        "question_index": 4,
+        "score": 0.81,
+        "score_label": "strong",
+        "flags": [],
+        "grade_reasoning": "Thoughtful answer that balances observability, product rollout, and trust-building concerns.",
+        "recruiter_injected": False,
+        "created_at": BASE_TIME - timedelta(days=1, hours=23, minutes=9),
+    },
     {
         "match_key": ("mira_patel", "openai_applied_ai"),
         "role": MessageRole.question,
