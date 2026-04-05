@@ -82,6 +82,9 @@ function getRecommendationDisplay(rec: string | null) {
   if (n.includes('maybe')) {
     return { text: 'Maybe', classes: 'text-warning font-semibold' }
   }
+  if (n.includes('no') || n.includes('reject')) {
+    return { text: 'No', classes: 'text-error font-semibold' }
+  }
   return { text: rec, classes: 'text-textPrimary font-semibold' }
 }
 

@@ -5,17 +5,18 @@ import { API_BASE_URL } from '../lib/api'
 
 const THINKING_DURATION_SECONDS = 20
 const RECORDING_DURATION_SECONDS = 120
+const NOTES_DURATION_SECONDS = 45
 const BREAK_DURATION_SECONDS = 15
 const DEFAULT_TOTAL_QUESTIONS = 4
 const FRAME_CAPTURE_INTERVAL_MS = 5000
-const EMPTY_RESPONSE_FALLBACK =
-  'Candidate completed a video response without a written summary.'
+const EMPTY_RESPONSE_FALLBACK = 'No written notes provided by candidate.'
 const MAX_WS_RECONNECTS = 4
 
 type InterviewPhase =
   | 'waiting'
   | 'thinking'
   | 'recording'
+  | 'notes'
   | 'break'
   | 'completed'
 
@@ -73,7 +74,11 @@ function getFooterMessage(phase: InterviewPhase, hasQueuedPrompt: boolean) {
   }
 
   if (phase === 'recording') {
-    return 'Stay steady and answer clearly. You can end the response early whenever you are finished.'
+    return 'Focus on your answer. You can stop the recording early whenever you are finished.'
+  }
+
+  if (phase === 'notes') {
+    return 'Recording done. Add any notes, then submit — or skip if you have nothing to add.'
   }
 
   if (hasQueuedPrompt) {
@@ -130,13 +135,14 @@ export function CandidateInterviewPage() {
   const [wsRetryKey, setWsRetryKey] = useState(0)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
-  const [responseDraft, setResponseDraft] = useState('')
+  const [notesDraft, setNotesDraft] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const socketRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const responseStartedAtRef = useRef<number | null>(null)
-  const responseDraftRef = useRef('')
+  const notesDraftRef = useRef('')
+  const elapsedSecondsRef = useRef(0)
   const reconnectCountRef = useRef(0)
   const manuallyClosedRef = useRef(false)
   const currentPromptRef = useRef<InterviewPrompt | null>(null)
@@ -169,7 +175,7 @@ export function CandidateInterviewPage() {
 
   function activatePrompt(nextPrompt: InterviewPrompt) {
     setCurrentPrompt(nextPrompt)
-    setResponseDraft('')
+    setNotesDraft('')
     setQuestionCount(nextPrompt.index + 1)
     setQuestionTotal((currentTotal) =>
       Math.max(currentTotal, nextPrompt.index + 1, DEFAULT_TOTAL_QUESTIONS),
@@ -204,14 +210,20 @@ export function CandidateInterviewPage() {
       return false
     }
 
-    const elapsedSeconds = responseStartedAtRef.current
+    elapsedSecondsRef.current = responseStartedAtRef.current
       ? Math.max(1, Math.round((Date.now() - responseStartedAtRef.current) / 1000))
       : 0
-    const answerText = responseDraftRef.current.trim() || EMPTY_RESPONSE_FALLBACK
+
+    setPhase('notes')
+    setSecondsRemaining(NOTES_DURATION_SECONDS)
+    return true
+  }, [])
+
+  const finishNotes = useCallback((notesText: string) => {
     const answerPayload = {
       type: 'answer',
-      text: answerText,
-      elapsed_seconds: elapsedSeconds,
+      text: notesText.trim() || EMPTY_RESPONSE_FALLBACK,
+      elapsed_seconds: elapsedSecondsRef.current,
     }
 
     if (!trySendSocketMessage(answerPayload)) {
@@ -225,7 +237,9 @@ export function CandidateInterviewPage() {
     }
 
     pendingAnswerRef.current = null
+    elapsedSecondsRef.current = 0
     setWebsocketError(null)
+    setNotesDraft('')
     beginBreak()
     return true
   }, [beginBreak, trySendSocketMessage])
@@ -235,8 +249,8 @@ export function CandidateInterviewPage() {
   }, [currentPrompt])
 
   useEffect(() => {
-    responseDraftRef.current = responseDraft
-  }, [responseDraft])
+    notesDraftRef.current = notesDraft
+  }, [notesDraft])
 
   useEffect(() => {
     phaseRef.current = phase
@@ -413,8 +427,13 @@ export function CandidateInterviewPage() {
         }
 
         if (phase === 'recording') {
-          const submitted = finishRecording()
-          return submitted ? BREAK_DURATION_SECONDS : current
+          const moved = finishRecording()
+          return moved ? NOTES_DURATION_SECONDS : current
+        }
+
+        if (phase === 'notes') {
+          finishNotes(notesDraftRef.current)
+          return BREAK_DURATION_SECONDS
         }
 
         if (queuedPrompt) {
@@ -431,7 +450,7 @@ export function CandidateInterviewPage() {
     return () => {
       window.clearInterval(interval)
     }
-  }, [currentPrompt, finishRecording, phase, queuedPrompt])
+  }, [currentPrompt, finishNotes, finishRecording, phase, queuedPrompt])
 
   useEffect(() => {
     if (phase !== 'recording' || !cameraReady || !videoRef.current || !canvasRef.current) {
@@ -481,8 +500,6 @@ export function CandidateInterviewPage() {
   }, [])
 
   const footerMessage = getFooterMessage(phase, Boolean(queuedPrompt))
-  const canEditResponse =
-    phase === 'thinking' || phase === 'recording' || phase === 'waiting'
 
   return (
     <section className="mx-auto flex h-[calc(100svh-2rem)] min-h-0 max-w-7xl">
@@ -513,18 +530,22 @@ export function CandidateInterviewPage() {
                   <p className="font-ui text-[1.02rem] font-semibold text-textPrimary sm:text-[1.22rem]">
                     {phase === 'thinking'
                       ? 'Thinking Time: '
-                      : phase === 'break'
-                        ? 'Short Break: '
-                        : phase === 'recording'
-                          ? 'Response Time: '
-                          : 'Interview Status: '}
+                      : phase === 'recording'
+                        ? 'Response Time: '
+                        : phase === 'notes'
+                          ? 'Notes Window: '
+                          : phase === 'break'
+                            ? 'Short Break: '
+                            : 'Interview Status: '}
                     <span
                       className={
                         phase === 'recording'
                           ? 'text-success'
-                          : phase === 'break'
-                            ? 'text-warning'
-                            : 'text-accentPrimary'
+                          : phase === 'notes'
+                            ? 'text-accentPrimary'
+                            : phase === 'break'
+                              ? 'text-warning'
+                              : 'text-accentPrimary'
                       }
                     >
                       {phase === 'completed' ? 'Done' : formatClock(secondsRemaining)}
@@ -533,7 +554,8 @@ export function CandidateInterviewPage() {
 
                   <p className="font-ui mt-4 text-[0.98rem] italic leading-7 text-textSecondary sm:text-[1.02rem]">
                     {phase === 'thinking' && 'Prepare your response...'}
-                    {phase === 'recording' && 'Recording in progress. Answer when you feel ready.'}
+                    {phase === 'recording' && 'Recording in progress. Stay focused on your answer.'}
+                    {phase === 'notes' && 'Recording complete. Add notes or skip.'}
                     {phase === 'break' && 'Take a short breath before the next prompt.'}
                     {phase === 'waiting' &&
                       'We are lining up the next step in your interview flow.'}
@@ -560,13 +582,13 @@ export function CandidateInterviewPage() {
                       </button>
                     ) : null}
                   </div>
-                ) : phase !== 'waiting' ? (
+                ) : phase !== 'waiting' && phase !== 'notes' ? (
                   <div className="rounded-[1.45rem] border border-border/80 bg-surfaceAlt px-5 py-4">
                     <p className="font-ui text-[1rem] italic leading-7 text-textSecondary">
                       {phase === 'thinking' &&
                         'Get ready to start recording your answer in a moment...'}
                       {phase === 'recording' &&
-                        'Your video response is live. Keep your answer focused and complete.'}
+                        'Your video response is live. End the recording whenever you are done speaking.'}
                       {phase === 'break' &&
                         'Pause, reset, and let the next question arrive naturally.'}
                       {phase === 'completed' &&
@@ -576,37 +598,52 @@ export function CandidateInterviewPage() {
                 ) : null}
               </div>
 
-              <div className="border-t border-border/80 pt-5">
-                <div className="rounded-[1.45rem] border border-border/80 bg-surfaceAlt px-5 py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-ui text-sm font-semibold text-textPrimary">
-                        Written response summary
-                      </p>
-                      <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
-                        Add a short transcript or bullet summary while you answer. This text is
-                        sent with your response for grading and recruiter review.
-                      </p>
+              {phase === 'notes' ? (
+                <div className="border-t border-border/80 pt-5">
+                  <div className="rounded-[1.45rem] border border-accentPrimary/30 bg-accentPrimary/6 px-5 py-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-ui text-sm font-semibold text-textPrimary">
+                          Post-answer notes
+                        </p>
+                        <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
+                          Jot down key examples, metrics, or context from your answer. This helps
+                          the AI grade accurately and gives the recruiter more signal.
+                        </p>
+                      </div>
+                      <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
+                        {notesDraft.trim().length} chars
+                      </span>
                     </div>
-                    <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
-                      {responseDraft.trim().length} chars
-                    </span>
+
+                    <textarea
+                      // eslint-disable-next-line jsx-a11y/no-autofocus
+                      autoFocus
+                      value={notesDraft}
+                      onChange={(event) => setNotesDraft(event.target.value)}
+                      placeholder="e.g. Led migration of 3 services to Kubernetes — reduced deploy time by 40%. Talked about the rollback strategy and tradeoffs..."
+                      className="font-ui mt-4 min-h-[140px] w-full rounded-[1.35rem] border border-border bg-surface px-4 py-3 text-sm leading-6 text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20"
+                    />
+
+                    <div className="mt-4 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => finishNotes(notesDraft)}
+                        className="font-ui inline-flex flex-1 items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+                      >
+                        Submit notes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => finishNotes('')}
+                        className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surfaceAlt px-5 py-2.5 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+                      >
+                        Skip
+                      </button>
+                    </div>
                   </div>
-
-                  <textarea
-                    value={responseDraft}
-                    onChange={(event) => setResponseDraft(event.target.value)}
-                    disabled={!canEditResponse}
-                    placeholder="Summarize your answer, outcomes, metrics, tradeoffs, and the examples you are discussing..."
-                    className="font-ui mt-4 min-h-[180px] w-full rounded-[1.35rem] border border-border bg-surface px-4 py-3 text-sm leading-6 text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20 disabled:cursor-not-allowed disabled:opacity-70"
-                  />
-
-                  <p className="font-ui mt-3 text-xs leading-5 text-textSecondary">
-                    If you leave this blank, Pomelo will send a generic fallback note and the
-                    quality of grading will be lower.
-                  </p>
                 </div>
-              </div>
+              ) : null}
             </div>
           </div>
 
@@ -615,7 +652,7 @@ export function CandidateInterviewPage() {
               <div className="rounded-[1.6rem] border border-border/75 bg-surfaceAlt/90 p-4 shadow-[0_16px_36px_rgba(139,111,99,0.1)]">
                 <div className="space-y-2.5 text-center">
                   <p className="type-counter text-[2.65rem] sm:text-[3.25rem]">
-                    {phase === 'recording'
+                    {phase === 'recording' || phase === 'notes'
                       ? formatClock(secondsRemaining)
                       : phase === 'completed'
                         ? '00:00'
@@ -624,13 +661,15 @@ export function CandidateInterviewPage() {
                   <p className="font-ui text-base font-medium text-textPrimary">
                     {phase === 'recording'
                       ? 'Recording...'
-                      : phase === 'thinking'
-                        ? 'Waiting to record'
-                        : phase === 'break'
-                          ? 'Break in progress'
-                          : phase === 'completed'
-                            ? 'Interview complete'
-                            : 'Preparing...'}
+                      : phase === 'notes'
+                        ? 'Add notes'
+                        : phase === 'thinking'
+                          ? 'Waiting to record'
+                          : phase === 'break'
+                            ? 'Break in progress'
+                            : phase === 'completed'
+                              ? 'Interview complete'
+                              : 'Preparing...'}
                   </p>
                 </div>
 
@@ -660,18 +699,20 @@ export function CandidateInterviewPage() {
 
                 <button
                   type="button"
-                  onClick={finishRecording}
-                  disabled={phase !== 'recording'}
+                  onClick={
+                    phase === 'notes' ? () => finishNotes(notesDraft) : finishRecording
+                  }
+                  disabled={phase !== 'recording' && phase !== 'notes'}
                   className="font-ui mt-4 inline-flex w-full items-center justify-center rounded-[1rem] border border-navButtonActive bg-navButtonActive px-5 py-2.5 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  End Recording Early
+                  {phase === 'notes' ? 'Submit notes' : 'End Recording Early'}
                 </button>
               </div>
 
               <div className="rounded-[1rem] border border-border bg-surface px-4 py-3 shadow-[0_12px_24px_rgba(139,111,99,0.08)]">
                 <p className="font-ui text-sm leading-6 text-textSecondary">
-                  Your camera preview and written summary stay in sync while you answer. Keep this
-                  page open until the interview is fully complete.
+                  Answer on video, then add notes after recording stops. Keep this page open until
+                  the interview is fully complete.
                 </p>
               </div>
 
