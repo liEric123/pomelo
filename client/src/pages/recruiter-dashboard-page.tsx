@@ -1,12 +1,14 @@
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../contexts/auth-context'
 import { apiFetch } from '../lib/api'
 import { subscribeDashboard } from '../lib/sse'
 
 const DEFAULT_TOTAL_QUESTIONS = 4
 const ACTIVE_INTERVIEWS_REFRESH_MS = 10000
 const ROLE_PIPELINE_REFRESH_MS = 15000
+const PANEL_COMPLETION_GRACE_MS = 30000
 
 type ActiveInterview = {
   match_id: number
@@ -115,6 +117,11 @@ type RoleDashboard = {
   completed: RoleDashboardCompleted[]
 }
 
+type RecruiterRole = {
+  role_id: number
+  title: string
+}
+
 type StreamEnvelope = {
   type?: string
   data?: unknown
@@ -134,6 +141,7 @@ type InterviewPanel = {
   completed: boolean
   summary: InterviewSummary | null
   streamError: string | null
+  lastSeenActiveAt: number
 }
 
 type RoleOption = {
@@ -142,7 +150,7 @@ type RoleOption = {
   count: number
 }
 
-function createPanel(interview: ActiveInterview): InterviewPanel {
+function createPanel(interview: ActiveInterview, lastSeenActiveAt = Date.now()): InterviewPanel {
   return {
     interview,
     transcript: [],
@@ -157,6 +165,7 @@ function createPanel(interview: ActiveInterview): InterviewPanel {
     completed: false,
     summary: null,
     streamError: null,
+    lastSeenActiveAt,
   }
 }
 
@@ -316,6 +325,10 @@ async function fetchRoleDashboard(roleId: number) {
   return apiFetch<RoleDashboard>(`/api/recruiter/dashboard/${roleId}`)
 }
 
+async function fetchRecruiterRoles(companyId: number) {
+  return apiFetch<RecruiterRole[]>(`/api/recruiter/roles?company_id=${companyId}`)
+}
+
 async function injectQuestion(matchId: number, questionText: string) {
   return apiFetch<{ queued: boolean }>(`/api/interviews/${matchId}/inject`, {
     method: 'POST',
@@ -326,20 +339,26 @@ async function injectQuestion(matchId: number, questionText: string) {
 }
 
 export function RecruiterDashboardPage() {
+  const { session } = useAuth()
+  const companyId = session?.company_id ?? null
   const [searchParams] = useSearchParams()
+  const searchRoleId = searchParams.get('roleId') ?? 'all'
+  const focusMatchId = useMemo(() => {
+    const value = searchParams.get('matchId')
+    if (!value) {
+      return null
+    }
+
+    const parsed = Number.parseInt(value, 10)
+    return Number.isNaN(parsed) ? null : parsed
+  }, [searchParams])
 
   const [panels, setPanels] = useState<Record<number, InterviewPanel>>({})
+  const [recruiterRoles, setRecruiterRoles] = useState<RecruiterRole[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [selectedRoleId, setSelectedRoleId] = useState<string>(
-    () => searchParams.get('roleId') ?? 'all',
-  )
-  const [focusMatchId] = useState<number | null>(() => {
-    const v = searchParams.get('matchId')
-    if (!v) return null
-    const n = Number.parseInt(v, 10)
-    return Number.isNaN(n) ? null : n
-  })
+  const [roleOptionsError, setRoleOptionsError] = useState<string | null>(null)
+  const [selectedRoleId, setSelectedRoleId] = useState<string>(searchRoleId)
   const [isCompareOpen, setIsCompareOpen] = useState(false)
   const [isCompareLoading, setIsCompareLoading] = useState(false)
   const [compareError, setCompareError] = useState<string | null>(null)
@@ -362,24 +381,34 @@ export function RecruiterDashboardPage() {
   const roleOptions = useMemo<RoleOption[]>(() => {
     const counts = new Map<number, RoleOption>()
 
-    panelList.forEach(({ interview }) => {
+    recruiterRoles.forEach((role) => {
+      counts.set(role.role_id, {
+        id: role.role_id,
+        label: role.title,
+        count: 0,
+      })
+    })
+
+    panelList.forEach(({ interview, completed }) => {
       const existing = counts.get(interview.role_id)
       if (existing) {
-        existing.count += 1
+        if (!completed) {
+          existing.count += 1
+        }
         return
       }
 
       counts.set(interview.role_id, {
         id: interview.role_id,
         label: interview.role_title,
-        count: 1,
+        count: completed ? 0 : 1,
       })
     })
 
     return Array.from(counts.values()).sort((left, right) =>
       left.label.localeCompare(right.label),
     )
-  }, [panelList])
+  }, [panelList, recruiterRoles])
 
   const visiblePanels = useMemo(() => {
     if (selectedRoleId === 'all') {
@@ -408,10 +437,31 @@ export function RecruiterDashboardPage() {
       : Number.parseInt(selectedRoleId, 10)
 
   const activeMatchIds = useMemo(
-    () => panelList.map((panel) => panel.interview.match_id),
+    () =>
+      panelList
+        .filter((panel) => !panel.completed)
+        .map((panel) => panel.interview.match_id),
     [panelList],
   )
   const activeMatchKey = useMemo(() => activeMatchIds.join(','), [activeMatchIds])
+
+  const loadRecruiterRoles = useCallback(async () => {
+    if (companyId == null) {
+      setRecruiterRoles([])
+      setRoleOptionsError('No company associated with your session.')
+      return
+    }
+
+    setRoleOptionsError(null)
+
+    try {
+      const roles = await fetchRecruiterRoles(companyId)
+      setRecruiterRoles(roles)
+    } catch (error) {
+      setRecruiterRoles([])
+      setRoleOptionsError(getErrorMessage(error, 'We could not load recruiter roles right now.'))
+    }
+  }, [companyId])
 
   const loadDashboard = useCallback(async (showLoading: boolean) => {
     if (showLoading) {
@@ -421,6 +471,7 @@ export function RecruiterDashboardPage() {
 
     try {
       const interviews = await fetchActiveInterviews()
+      const refreshedAt = Date.now()
 
       setPanels((current) => {
         const next: Record<number, InterviewPanel> = {}
@@ -428,12 +479,15 @@ export function RecruiterDashboardPage() {
         interviews.forEach((interview) => {
           const existing = current[interview.match_id]
           next[interview.match_id] = existing
-            ? { ...existing, interview }
-            : createPanel(interview)
+            ? { ...existing, interview, lastSeenActiveAt: refreshedAt }
+            : createPanel(interview, refreshedAt)
         })
 
         Object.values(current).forEach((panel) => {
-          if (panel.completed && !next[panel.interview.match_id]) {
+          const recentlyActive =
+            refreshedAt - panel.lastSeenActiveAt <= PANEL_COMPLETION_GRACE_MS
+
+          if (!next[panel.interview.match_id] && (panel.completed || recentlyActive)) {
             next[panel.interview.match_id] = panel
           }
         })
@@ -455,6 +509,10 @@ export function RecruiterDashboardPage() {
   }, [])
 
   useEffect(() => {
+    void loadRecruiterRoles()
+  }, [loadRecruiterRoles])
+
+  useEffect(() => {
     void loadDashboard(true)
 
     const interval = window.setInterval(() => {
@@ -465,6 +523,11 @@ export function RecruiterDashboardPage() {
       window.clearInterval(interval)
     }
   }, [loadDashboard])
+
+  useEffect(() => {
+    setSelectedRoleId((current) => (current === searchRoleId ? current : searchRoleId))
+    setCompareError(null)
+  }, [searchRoleId])
 
   useEffect(() => {
     if (selectedRoleId !== 'all') {
@@ -720,6 +783,7 @@ export function RecruiterDashboardPage() {
                   completed: true,
                   streamError: null,
                   summary,
+                  lastSeenActiveAt: Date.now(),
                 },
               }
             })
@@ -911,6 +975,7 @@ export function RecruiterDashboardPage() {
               <button
                 type="button"
                 onClick={() => {
+                  void loadRecruiterRoles()
                   void loadDashboard(false)
                   if (selectedRoleIdNum != null) void loadRoleDashboard(selectedRoleIdNum)
                 }}
@@ -934,6 +999,12 @@ export function RecruiterDashboardPage() {
       {loadError ? (
         <div className="rounded-[1.75rem] border border-error/30 bg-error/10 px-5 py-4 text-sm text-textPrimary">
           {loadError}
+        </div>
+      ) : null}
+
+      {roleOptionsError ? (
+        <div className="rounded-[1.75rem] border border-warning/35 bg-warning/16 px-5 py-4 text-sm text-textPrimary">
+          {roleOptionsError}
         </div>
       ) : null}
 

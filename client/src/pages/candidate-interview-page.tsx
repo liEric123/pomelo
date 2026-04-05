@@ -141,6 +141,7 @@ export function CandidateInterviewPage() {
   const manuallyClosedRef = useRef(false)
   const currentPromptRef = useRef<InterviewPrompt | null>(null)
   const phaseRef = useRef<InterviewPhase>('waiting')
+  const pendingAnswerRef = useRef<Record<string, unknown> | null>(null)
 
   const questionCounterText = useMemo(
     () => `Q${questionCount}/${questionTotal}`,
@@ -152,14 +153,19 @@ export function CandidateInterviewPage() {
 
   const showVideoPreview = cameraReady
 
-  function sendSocketMessage(payload: Record<string, unknown>) {
+  const trySendSocketMessage = useCallback((payload: Record<string, unknown>) => {
     const socket = socketRef.current
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      return
+      return false
     }
 
-    socket.send(JSON.stringify(payload))
-  }
+    try {
+      socket.send(JSON.stringify(payload))
+      return true
+    } catch {
+      return false
+    }
+  }, [])
 
   function activatePrompt(nextPrompt: InterviewPrompt) {
     setCurrentPrompt(nextPrompt)
@@ -172,30 +178,57 @@ export function CandidateInterviewPage() {
     setSecondsRemaining(THINKING_DURATION_SECONDS)
   }
 
-  function beginBreak() {
+  const beginBreak = useCallback(() => {
     responseStartedAtRef.current = null
     setPhase('break')
     setSecondsRemaining(BREAK_DURATION_SECONDS)
-  }
+  }, [])
+
+  const flushPendingAnswer = useCallback(() => {
+    if (!pendingAnswerRef.current) {
+      return false
+    }
+
+    if (!trySendSocketMessage(pendingAnswerRef.current)) {
+      return false
+    }
+
+    pendingAnswerRef.current = null
+    setWebsocketError(null)
+    beginBreak()
+    return true
+  }, [beginBreak, trySendSocketMessage])
 
   const finishRecording = useCallback(() => {
     if (phaseRef.current !== 'recording') {
-      return
+      return false
     }
 
     const elapsedSeconds = responseStartedAtRef.current
       ? Math.max(1, Math.round((Date.now() - responseStartedAtRef.current) / 1000))
       : 0
     const answerText = responseDraftRef.current.trim() || EMPTY_RESPONSE_FALLBACK
-
-    sendSocketMessage({
+    const answerPayload = {
       type: 'answer',
       text: answerText,
       elapsed_seconds: elapsedSeconds,
-    })
+    }
 
+    if (!trySendSocketMessage(answerPayload)) {
+      pendingAnswerRef.current = answerPayload
+      setWebsocketError(
+        'We lost the live interview connection before your answer was submitted. Stay on this page while we reconnect and send it.',
+      )
+      setPhase('waiting')
+      setSecondsRemaining(0)
+      return false
+    }
+
+    pendingAnswerRef.current = null
+    setWebsocketError(null)
     beginBreak()
-  }, [])
+    return true
+  }, [beginBreak, trySendSocketMessage])
 
   useEffect(() => {
     currentPromptRef.current = currentPrompt
@@ -231,6 +264,12 @@ export function CandidateInterviewPage() {
         setWebsocketError(null)
         setWsPermanentlyFailed(false)
         reconnectCountRef.current = 0
+
+        if (pendingAnswerRef.current && !flushPendingAnswer()) {
+          setWebsocketError(
+            'We reconnected, but your last answer is still waiting to submit. Please stay on this page.',
+          )
+        }
       })
 
       socket.addEventListener('message', (event) => {
@@ -246,6 +285,9 @@ export function CandidateInterviewPage() {
             setQueuedPrompt(null)
             setPhase('completed')
             setSecondsRemaining(0)
+            pendingAnswerRef.current = null
+            manuallyClosedRef.current = true
+            socket.close()
             return
           }
 
@@ -269,7 +311,7 @@ export function CandidateInterviewPage() {
       })
 
       socket.addEventListener('close', () => {
-        if (cancelled || manuallyClosedRef.current) {
+        if (cancelled || manuallyClosedRef.current || phaseRef.current === 'completed') {
           return
         }
 
@@ -371,8 +413,8 @@ export function CandidateInterviewPage() {
         }
 
         if (phase === 'recording') {
-          finishRecording()
-          return BREAK_DURATION_SECONDS
+          const submitted = finishRecording()
+          return submitted ? BREAK_DURATION_SECONDS : current
         }
 
         if (queuedPrompt) {
@@ -420,7 +462,7 @@ export function CandidateInterviewPage() {
       context.drawImage(video, 0, 0, canvas.width, canvas.height)
       const base64 = canvas.toDataURL('image/jpeg', 0.5)
 
-      sendSocketMessage({
+      trySendSocketMessage({
         type: 'frame',
         data: { base64 },
       })
@@ -429,7 +471,7 @@ export function CandidateInterviewPage() {
     return () => {
       window.clearInterval(interval)
     }
-  }, [cameraReady, phase])
+  }, [cameraReady, phase, trySendSocketMessage])
 
   useEffect(() => {
     return () => {
