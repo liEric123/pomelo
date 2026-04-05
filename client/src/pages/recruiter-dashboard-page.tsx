@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
 import { subscribeDashboard } from '../lib/sse'
 
@@ -75,6 +75,43 @@ type CompareResponse = {
   reject: CompareCandidate[]
   total: number
   cutoff: number
+}
+
+type RoleDashboardRole = {
+  role_id: number
+  title: string
+  description: string
+  min_score: number
+  max_score: number
+  keywords: string[]
+  is_active: boolean
+}
+
+type RoleDashboardActive = {
+  match_id: number
+  candidate_id: number
+  name: string
+  resume_score_pct: number
+  top_skills: string[]
+  matched_at: string
+  status: string
+}
+
+type RoleDashboardCompleted = {
+  match_id: number
+  candidate_id: number
+  name: string
+  resume_score_pct: number
+  final_score: number | null
+  recommendation: string | null
+  summary: string | null
+  completed_at: string | null
+}
+
+type RoleDashboard = {
+  role: RoleDashboardRole
+  active: RoleDashboardActive[]
+  completed: RoleDashboardCompleted[]
 }
 
 type StreamEnvelope = {
@@ -162,6 +199,52 @@ function formatPercent(value: number) {
   return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`
 }
 
+function formatPct(value: number) {
+  return `${Math.round(Math.max(0, Math.min(100, value)))}%`
+}
+
+function formatDate(value: string) {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return 'Recently'
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(parsed)
+}
+
+function shortRecommendation(rec: string | null) {
+  if (!rec) return null
+  const n = rec.toLowerCase()
+  if (n.includes('strong') && n.includes('yes')) return 'Strong yes'
+  if (n.includes('yes') || n.includes('advance')) return 'Advance'
+  if (n.includes('maybe')) return 'Maybe'
+  if (n.includes('no') || n.includes('reject')) return 'No'
+  return rec
+}
+
+function getStatusBadgeClasses(status: string) {
+  switch (status) {
+    case 'interviewing':
+      return 'border-info/35 bg-info/15 text-textPrimary'
+    case 'pending':
+      return 'border-warning/35 bg-warning/15 text-textPrimary'
+    case 'completed':
+      return 'border-success/35 bg-success/15 text-textPrimary'
+    default:
+      return 'border-border bg-surfaceAlt text-textPrimary'
+  }
+}
+
+function getRecommendationBadgeClasses(rec: string | null) {
+  if (!rec) return 'border-border bg-surfaceAlt text-textSecondary'
+  const n = rec.toLowerCase()
+  if (n.includes('strong') && n.includes('yes')) return 'border-success/35 bg-success/15 text-textPrimary'
+  if (n.includes('yes') || n.includes('advance')) return 'border-success/30 bg-success/12 text-textPrimary'
+  if (n.includes('maybe')) return 'border-warning/35 bg-warning/15 text-textPrimary'
+  return 'border-error/30 bg-error/10 text-error'
+}
+
 function formatPercentScore(value: number) {
   return `${Math.round(Math.max(0, Math.min(100, value)))}%`
 }
@@ -228,6 +311,10 @@ async function fetchComparison(roleId: number) {
   return apiFetch<CompareResponse>(`/api/recruiter/roles/${roleId}/compare`)
 }
 
+async function fetchRoleDashboard(roleId: number) {
+  return apiFetch<RoleDashboard>(`/api/recruiter/dashboard/${roleId}`)
+}
+
 async function injectQuestion(matchId: number, questionText: string) {
   return apiFetch<{ queued: boolean }>(`/api/interviews/${matchId}/inject`, {
     method: 'POST',
@@ -238,16 +325,30 @@ async function injectQuestion(matchId: number, questionText: string) {
 }
 
 export function RecruiterDashboardPage() {
+  const [searchParams] = useSearchParams()
+
   const [panels, setPanels] = useState<Record<number, InterviewPanel>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [selectedRoleId, setSelectedRoleId] = useState<string>('all')
+  const [selectedRoleId, setSelectedRoleId] = useState<string>(
+    () => searchParams.get('roleId') ?? 'all',
+  )
+  const [focusMatchId] = useState<number | null>(() => {
+    const v = searchParams.get('matchId')
+    if (!v) return null
+    const n = Number.parseInt(v, 10)
+    return Number.isNaN(n) ? null : n
+  })
   const [isCompareOpen, setIsCompareOpen] = useState(false)
   const [isCompareLoading, setIsCompareLoading] = useState(false)
   const [compareError, setCompareError] = useState<string | null>(null)
   const [comparison, setComparison] = useState<CompareResponse | null>(null)
+  const [roleDashboard, setRoleDashboard] = useState<RoleDashboard | null>(null)
+  const [isDashboardLoading, setIsDashboardLoading] = useState(false)
+  const [dashboardError, setDashboardError] = useState<string | null>(null)
   const sourcesRef = useRef<Record<number, EventSource>>({})
   const transcriptRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  const panelArticleRefs = useRef<Record<number, HTMLElement | null>>({})
 
   const panelList = useMemo(
     () =>
@@ -291,6 +392,12 @@ export function RecruiterDashboardPage() {
 
     return panelList.filter((panel) => panel.interview.role_id === parsed)
   }, [panelList, selectedRoleId])
+
+  const selectedRoleIdNum = useMemo(() => {
+    if (selectedRoleId === 'all') return null
+    const n = Number.parseInt(selectedRoleId, 10)
+    return Number.isNaN(n) ? null : n
+  }, [selectedRoleId])
 
   const compareRoleId =
     selectedRoleId === 'all'
@@ -367,6 +474,40 @@ export function RecruiterDashboardPage() {
       setSelectedRoleId(String(roleOptions[0].id))
     }
   }, [roleOptions, selectedRoleId])
+
+  const loadRoleDashboard = useCallback(async (roleId: number) => {
+    setIsDashboardLoading(true)
+    setDashboardError(null)
+    try {
+      const data = await fetchRoleDashboard(roleId)
+      setRoleDashboard(data)
+    } catch (error) {
+      setDashboardError(getErrorMessage(error, 'Could not load role pipeline data.'))
+      setRoleDashboard(null)
+    } finally {
+      setIsDashboardLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (selectedRoleIdNum == null) {
+      setRoleDashboard(null)
+      setDashboardError(null)
+      return
+    }
+    void loadRoleDashboard(selectedRoleIdNum)
+  }, [selectedRoleIdNum, loadRoleDashboard])
+
+  // Scroll to focused match panel once panels have loaded
+  useEffect(() => {
+    if (!focusMatchId || !panels[focusMatchId]) return
+    const el = panelArticleRefs.current[focusMatchId]
+    if (el) {
+      window.setTimeout(() => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [focusMatchId, panels])
 
   useEffect(() => {
     const activeIds = new Set(
@@ -757,7 +898,10 @@ export function RecruiterDashboardPage() {
             <div className="flex items-end gap-3">
               <button
                 type="button"
-                onClick={() => void loadDashboard(false)}
+                onClick={() => {
+                  void loadDashboard(false)
+                  if (selectedRoleIdNum != null) void loadRoleDashboard(selectedRoleIdNum)
+                }}
                 disabled={isLoading}
                 className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surface px-5 py-3 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12 disabled:opacity-50"
               >
@@ -781,6 +925,145 @@ export function RecruiterDashboardPage() {
         </div>
       ) : null}
 
+      {/* ── Role pipeline context ── */}
+      {selectedRoleIdNum != null ? (
+        <div className="rounded-[2rem] border border-border bg-surface shadow-panel">
+          {isDashboardLoading ? (
+            <div className="px-6 py-5">
+              <p className="type-meta">Loading role pipeline…</p>
+            </div>
+          ) : dashboardError ? (
+            <div className="px-6 py-5">
+              <p className="type-meta text-error">{dashboardError}</p>
+            </div>
+          ) : roleDashboard ? (
+            <div>
+              {/* Role header */}
+              <div className="flex flex-col gap-3 border-b border-border px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="type-kicker">Role pipeline</p>
+                  <h3 className="mt-2 font-ui text-xl font-semibold text-textPrimary">
+                    {roleDashboard.role.title}
+                  </h3>
+                  <p
+                    className="font-ui mt-1.5 text-sm leading-6 text-textSecondary"
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {roleDashboard.role.description}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-3">
+                  <div className="rounded-2xl border border-border bg-surfaceAlt px-4 py-2.5 text-center">
+                    <p className="type-meta">Active</p>
+                    <p className="font-ui mt-1 text-lg font-semibold text-textPrimary">
+                      {roleDashboard.active.length}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-surfaceAlt px-4 py-2.5 text-center">
+                    <p className="type-meta">Done</p>
+                    <p className="font-ui mt-1 text-lg font-semibold text-textPrimary">
+                      {roleDashboard.completed.length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active pipeline */}
+              {roleDashboard.active.length > 0 ? (
+                <div className="border-b border-border px-6 py-4">
+                  <p className="type-label mb-3">Active candidates</p>
+                  <div className="space-y-2">
+                    {roleDashboard.active.map((c) => (
+                      <div
+                        key={c.match_id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surfaceAlt px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-ui text-sm font-semibold text-textPrimary">
+                            {c.name}
+                          </p>
+                          <p className="type-meta mt-0.5">
+                            Matched {formatDate(c.matched_at)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className="type-badge rounded-full border border-border bg-surface px-3 py-1 text-textPrimary">
+                            {formatPct(c.resume_score_pct)} fit
+                          </span>
+                          <span
+                            className={`type-badge rounded-full border px-3 py-1 ${getStatusBadgeClasses(c.status)}`}
+                          >
+                            {c.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Completed pipeline */}
+              {roleDashboard.completed.length > 0 ? (
+                <div className="px-6 py-4">
+                  <p className="type-label mb-3">Completed interviews</p>
+                  <div className="space-y-2">
+                    {roleDashboard.completed.map((c) => {
+                      const rec = shortRecommendation(c.recommendation)
+                      return (
+                        <div
+                          key={c.match_id}
+                          className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-surfaceAlt px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-ui text-sm font-semibold text-textPrimary">
+                              {c.name}
+                            </p>
+                            {c.completed_at ? (
+                              <p className="type-meta mt-0.5">
+                                Completed {formatDate(c.completed_at)}
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            {c.final_score != null ? (
+                              <span className="type-badge rounded-full border border-border bg-surface px-3 py-1 text-textPrimary">
+                                {formatPercent(c.final_score)}
+                              </span>
+                            ) : null}
+                            {rec ? (
+                              <span
+                                className={`type-badge rounded-full border px-3 py-1 ${getRecommendationBadgeClasses(c.recommendation)}`}
+                              >
+                                {rec}
+                              </span>
+                            ) : (
+                              <span className="type-badge rounded-full border border-border bg-surfaceAlt px-3 py-1 text-textSecondary">
+                                Pending review
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {roleDashboard.active.length === 0 && roleDashboard.completed.length === 0 ? (
+                <div className="px-6 py-5">
+                  <p className="type-meta">No candidates in pipeline for this role yet.</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {isLoading ? (
         <div className="rounded-[2rem] border border-border bg-surface p-10 text-center shadow-panel">
           <p className="type-kicker">Loading dashboard</p>
@@ -793,12 +1076,20 @@ export function RecruiterDashboardPage() {
           {visiblePanels.map((panel) => {
             const summaryScore = formatWeightedScore(panel.summary?.scores_weighted)
 
+            const isFocused = focusMatchId === panel.interview.match_id
+
             return (
               <article
                 key={panel.interview.match_id}
+                ref={(el) => {
+                  panelArticleRefs.current[panel.interview.match_id] = el
+                }}
                 className={[
-                  'relative overflow-hidden rounded-[1.85rem] border border-border bg-surface p-5 shadow-panel transition',
+                  'relative overflow-hidden rounded-[1.85rem] border bg-surface p-5 shadow-panel transition',
                   panel.completed ? 'grayscale-[0.18] opacity-85' : '',
+                  isFocused
+                    ? 'border-accentPrimary ring-2 ring-accentPrimary/20'
+                    : 'border-border',
                 ].join(' ')}
               >
                 <div className="flex flex-col gap-5">
@@ -1019,14 +1310,25 @@ export function RecruiterDashboardPage() {
             No interviews in progress
           </h3>
           <p className="type-body mt-4 max-w-xl">
-            When a candidate starts an interview, their panel will appear here with a live transcript, grading signals, and camera frames. Manage roles and matches from the Roles page.
+            When a candidate starts an interview, their panel will appear here with a live transcript, grading signals, and camera frames. Review role queues and advance candidates from the Roles page.
           </p>
-          <Link
-            to="/recruiter/roles"
-            className="font-ui mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
-          >
-            Go to Roles
-          </Link>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              to="/recruiter/roles"
+              className="font-ui inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+            >
+              Review role queues
+            </Link>
+            {selectedRoleIdNum != null ? (
+              <button
+                type="button"
+                onClick={() => void loadDashboard(false)}
+                className="font-ui inline-flex rounded-full border border-border bg-surfaceAlt px-5 py-3 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+              >
+                Refresh
+              </button>
+            ) : null}
+          </div>
         </div>
       )}
 

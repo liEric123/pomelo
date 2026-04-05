@@ -96,9 +96,14 @@ export function CandidateFeedPage() {
   const [feedError, setFeedError] = useState<string | null>(null)
   const [swipeError, setSwipeError] = useState<string | null>(null)
   const [swipesRemaining, setSwipesRemaining] = useState(DAILY_SWIPE_LIMIT)
-  const [matchState, setMatchState] = useState<{ open: boolean; roleTitle: string }>({
+  const [matchState, setMatchState] = useState<{
+    open: boolean
+    roleTitle: string
+    matchId: number | null
+  }>({
     open: false,
     roleTitle: '',
+    matchId: null,
   })
   const [comeBackTomorrow, setComeBackTomorrow] = useState(false)
   const refs = useRef<RefObject<TinderCardApi>[]>([])
@@ -163,7 +168,7 @@ export function CandidateFeedPage() {
       )
 
       if (response.matched) {
-        setMatchState({ open: true, roleTitle: role.title })
+        setMatchState({ open: true, roleTitle: role.title, matchId: response.match_id ?? null })
       }
     } catch (error) {
       if (error instanceof Error && error.message.includes('status 429')) {
@@ -224,15 +229,18 @@ export function CandidateFeedPage() {
   if (!roles.length) {
     return (
       <section className="mx-auto max-w-3xl rounded-[2rem] border border-border bg-surface p-10 shadow-panel">
-        <p className="type-kicker">
-          Candidate feed
-        </p>
-        <h2 className="type-display-page mt-5">
-          No roles available right now
-        </h2>
+        <p className="type-kicker">Candidate feed</p>
+        <h2 className="type-display-page mt-5">No roles available right now</h2>
         <p className="type-body mt-5">
-          You&apos;ve cleared the current stack. Check back soon for more curated matches.
+          You&apos;ve cleared the current stack. Check back soon for more curated roles — and see
+          if any recruiters have already matched with you.
         </p>
+        <Link
+          to="/candidate/matches"
+          className="font-ui mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+        >
+          View your matches
+        </Link>
       </section>
     )
   }
@@ -396,22 +404,35 @@ export function CandidateFeedPage() {
       {matchState.open ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-textPrimary/30 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-border bg-surface p-8 text-center shadow-glass">
-            <p className="type-kicker text-center">
-              Mutual interest
-            </p>
+            <p className="type-kicker text-center">Mutual interest</p>
             <h3 className="font-display mt-5 text-5xl font-semibold tracking-[-0.01em] text-textPrimary">
               It&apos;s a Match!
             </h3>
             <p className="type-body mt-5 text-center">
-              You and the recruiter both liked <span className="font-semibold text-textPrimary">{matchState.roleTitle}</span>.
+              You and the recruiter both liked{' '}
+              <span className="font-semibold text-textPrimary">{matchState.roleTitle}</span>.
+              Head to your matches to begin the interview when it&apos;s ready.
             </p>
-            <button
-              type="button"
-              onClick={() => setMatchState({ open: false, roleTitle: '' })}
-              className="font-ui mt-9 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
-            >
-              Keep swiping
-            </button>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Link
+                to="/candidate/matches"
+                onClick={() =>
+                  setMatchState({ open: false, roleTitle: '', matchId: null })
+                }
+                className="font-ui inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+              >
+                View my matches
+              </Link>
+              <button
+                type="button"
+                onClick={() =>
+                  setMatchState({ open: false, roleTitle: '', matchId: null })
+                }
+                className="font-ui inline-flex items-center justify-center rounded-full border border-border bg-surfaceAlt px-5 py-3 text-sm font-semibold text-textPrimary transition hover:border-accentSecondary hover:bg-accentSecondary/12"
+              >
+                Keep swiping
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
