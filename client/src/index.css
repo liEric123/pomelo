@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -22,8 +24,9 @@
   --warning: #f0b56a;
   --error: #d9776a;
   --info: #a7c7e7;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-ui);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -39,6 +42,7 @@ body,
 body {
   margin: 0;
   min-height: 100vh;
+  font-family: var(--font-ui);
   background:
     radial-gradient(circle at top left, rgba(245, 140, 124, 0.14), transparent 30%),
     radial-gradient(circle at top right, rgba(255, 224, 184, 0.45), transparent 26%),
@@ -70,7 +74,76 @@ select {
   font: inherit;
 }
 
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 ::selection {
   background: rgba(245, 140, 124, 0.22);
   color: var(--text-primary);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-ui);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-ui {
+    font-family: var(--font-ui);
+  }
+}
+
+@layer components {
+  .type-kicker {
+    @apply font-ui text-sm font-medium uppercase tracking-[0.32em] text-textSecondary;
+  }
+
+  .type-display-hero {
+    @apply font-display text-4xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-5xl;
+    line-height: 1.12;
+  }
+
+  .type-display-page {
+    @apply font-display text-3xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-4xl;
+    line-height: 1.14;
+  }
+
+  .type-display-section {
+    @apply font-display text-2xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-3xl;
+    line-height: 1.16;
+  }
+
+  .type-body {
+    @apply font-ui text-base leading-7 text-textSecondary;
+  }
+
+  .type-body-lg {
+    @apply font-ui text-lg leading-8 text-textSecondary;
+  }
+
+  .type-label {
+    @apply font-ui text-sm font-medium text-textPrimary;
+  }
+
+  .type-meta {
+    @apply font-ui text-sm text-textSecondary;
+  }
+
+  .type-badge {
+    @apply font-ui text-sm font-semibold;
+  }
+
+  .type-stat {
+    @apply font-ui text-lg font-semibold text-textPrimary;
+  }
+
+  .type-counter {
+    @apply font-ui font-semibold text-textPrimary;
+  }
 }

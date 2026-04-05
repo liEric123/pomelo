@@ -213,10 +213,10 @@ export function CandidateFeedPage() {
   if (isLoading) {
     return (
       <section className="mx-auto max-w-3xl rounded-[2rem] border border-border bg-surface p-10 text-center shadow-panel">
-        <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+        <p className="type-kicker">
           Candidate feed
         </p>
-        <h2 className="mt-4 text-3xl font-semibold text-textPrimary">
+        <h2 className="type-display-page mt-5">
           Loading your curated role feed...
         </h2>
       </section>
@@ -226,16 +226,16 @@ export function CandidateFeedPage() {
   if (feedError) {
     return (
       <section className="mx-auto max-w-3xl rounded-[2rem] border border-border bg-surface p-10 shadow-panel">
-        <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+        <p className="type-kicker">
           Candidate feed
         </p>
-        <h2 className="mt-4 text-3xl font-semibold text-textPrimary">
+        <h2 className="type-display-page mt-5">
           Your feed is not ready yet
         </h2>
-        <p className="mt-4 text-base leading-7 text-textSecondary">{feedError}</p>
+        <p className="type-body mt-5">{feedError}</p>
         <Link
           to="/candidate/signup"
-          className="mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+          className="font-ui mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
         >
           Back to signup
         </Link>
@@ -246,13 +246,13 @@ export function CandidateFeedPage() {
   if (!roles.length) {
     return (
       <section className="mx-auto max-w-3xl rounded-[2rem] border border-border bg-surface p-10 shadow-panel">
-        <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+        <p className="type-kicker">
           Candidate feed
         </p>
-        <h2 className="mt-4 text-3xl font-semibold text-textPrimary">
+        <h2 className="type-display-page mt-5">
           No roles available right now
         </h2>
-        <p className="mt-4 text-base leading-7 text-textSecondary">
+        <p className="type-body mt-5">
           You&apos;ve cleared the current stack. Check back soon for more curated matches.
         </p>
       </section>
@@ -263,22 +263,22 @@ export function CandidateFeedPage() {
     <section className="mx-auto flex max-w-6xl flex-col gap-6">
       <div className="flex flex-col gap-4 rounded-[2rem] border border-border bg-surface px-5 py-5 shadow-panel sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+          <p className="type-kicker">
             Candidate feed
           </p>
-          <h2 className="mt-2 text-2xl font-semibold text-textPrimary">
+          <h2 className="type-display-section mt-3 max-w-2xl">
             Curated roles matched to your resume profile
           </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-full border border-border bg-surfaceAlt px-4 py-2 text-sm font-medium text-textPrimary">
+          <div className="font-ui rounded-full border border-border bg-surfaceAlt px-4 py-2 text-sm font-medium text-textPrimary">
             {comeBackTomorrow
               ? 'Come back tomorrow'
               : `${swipesRemaining} swipes remaining`}
           </div>
           {swipeError ? (
-            <div className="rounded-full border border-error/30 bg-error/10 px-4 py-2 text-sm font-medium text-error">
+            <div className="font-ui rounded-full border border-error/30 bg-error/10 px-4 py-2 text-sm font-medium text-error">
               {swipeError}
             </div>
           ) : null}
@@ -311,28 +311,28 @@ export function CandidateFeedPage() {
                         {role.title.slice(0, 2).toUpperCase()}
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-textPrimary">
+                        <h3 className="font-display text-[1.65rem] font-semibold tracking-[-0.01em] text-textPrimary">
                           {role.title}
                         </h3>
-                        <p className="mt-1 text-sm text-textSecondary">
+                        <p className="type-meta mt-1">
                           {getCompanyLabel(role)}
                         </p>
                       </div>
                     </div>
 
                     <span
-                      className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${getMatchBadgeClasses(matchPercent)}`}
+                      className={`type-badge inline-flex rounded-full border px-3 py-1 ${getMatchBadgeClasses(matchPercent)}`}
                     >
                       {matchPercent}% match
                     </span>
                   </div>
 
                   <div className="mt-6 rounded-[1.5rem] border border-border bg-surfaceAlt p-4">
-                    <p className="text-xs uppercase tracking-[0.24em] text-textSecondary">
+                    <p className="font-ui text-xs uppercase tracking-[0.24em] text-textSecondary">
                       Why this role
                     </p>
                     <p
-                      className="mt-3 text-base leading-7 text-textSecondary"
+                      className="font-ui mt-4 text-base leading-7 text-textSecondary"
                       style={
                         isExpanded
                           ? undefined
@@ -353,13 +353,13 @@ export function CandidateFeedPage() {
                           current === role.role_id ? null : role.role_id,
                         )
                       }
-                      className="mt-4 text-sm font-medium text-navButton hover:text-navButtonHover"
+                      className="font-ui mt-5 text-sm font-medium text-navButton hover:text-navButtonHover"
                     >
                       {isExpanded ? 'Show less' : 'Tap to expand'}
                     </button>
                   </div>
 
-                  <div className="mt-auto grid grid-cols-2 gap-3 pt-6 text-sm text-textSecondary">
+                  <div className="font-ui mt-auto grid grid-cols-2 gap-3 pt-8 text-sm text-textSecondary">
                     <div className="rounded-2xl border border-border bg-background px-4 py-3">
                       Swipe left to pass
                     </div>
@@ -378,7 +378,7 @@ export function CandidateFeedPage() {
             type="button"
             onClick={() => void triggerSwipe('left')}
             disabled={activeIndex < 0 || comeBackTomorrow}
-            className="flex h-16 w-16 items-center justify-center rounded-full border border-error/30 bg-error/12 text-error transition hover:bg-error/18 disabled:cursor-not-allowed disabled:opacity-50"
+            className="font-ui flex h-16 w-16 items-center justify-center rounded-full border border-error/30 bg-error/12 text-error transition hover:bg-error/18 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Pass"
           >
             <svg
@@ -398,7 +398,7 @@ export function CandidateFeedPage() {
             type="button"
             onClick={() => void triggerSwipe('right')}
             disabled={activeIndex < 0 || comeBackTomorrow}
-            className="flex h-16 w-16 items-center justify-center rounded-full border border-success/30 bg-success/15 text-success transition hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="font-ui flex h-16 w-16 items-center justify-center rounded-full border border-success/30 bg-success/15 text-success transition hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Interested"
           >
             <svg
@@ -418,19 +418,19 @@ export function CandidateFeedPage() {
       {matchState.open ? (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-textPrimary/30 px-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-[2rem] border border-border bg-surface p-8 text-center shadow-glass">
-            <p className="text-sm font-medium uppercase tracking-[0.28em] text-textSecondary">
+            <p className="type-kicker text-center">
               Mutual interest
             </p>
-            <h3 className="mt-4 text-4xl font-semibold text-textPrimary">
+            <h3 className="font-display mt-5 text-5xl font-semibold tracking-[-0.01em] text-textPrimary">
               It&apos;s a Match!
             </h3>
-            <p className="mt-4 text-base leading-7 text-textSecondary">
+            <p className="type-body mt-5 text-center">
               You and the recruiter both liked <span className="font-semibold text-textPrimary">{matchState.roleTitle}</span>.
             </p>
             <button
               type="button"
               onClick={() => setMatchState({ open: false, roleTitle: '' })}
-              className="mt-8 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+              className="font-ui mt-9 inline-flex rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
             >
               Keep swiping
             </button>

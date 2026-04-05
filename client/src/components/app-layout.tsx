@@ -15,7 +15,7 @@ const recruiterLinks = [
 
 function getNavClasses(isActive: boolean) {
   return [
-    'rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-200',
+    'font-ui rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-200',
     isActive
       ? 'border-navButtonActive bg-navButtonActive text-navButtonText'
       : 'border-navButton bg-navButton text-navButtonText hover:border-navButtonHover hover:bg-navButtonHover',
@@ -43,10 +43,10 @@ export function AppLayout() {
               <p className="text-xs uppercase tracking-[0.32em] text-textSecondary">
                 Pomelo
               </p>
-              <h1 className="mt-2 text-2xl font-semibold text-textPrimary">
+              <h1 className="mt-3 font-display text-3xl font-semibold tracking-[-0.01em] text-textPrimary sm:text-[2.3rem]">
                 AI-assisted hiring platform
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-textSecondary">
+              <p className="mt-4 max-w-2xl font-ui text-sm leading-6 text-textSecondary">
                 Structured matching, guided interviews, and recruiter-side live decision support.
               </p>
             </div>
@@ -56,7 +56,7 @@ export function AppLayout() {
                 type="button"
                 onClick={() => navigate('/candidate/signup')}
                 className={[
-                  'flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
+                  'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
                   audience === 'candidate'
                     ? 'bg-accentPrimary text-navButtonText shadow-sm'
                     : 'text-textSecondary hover:text-textPrimary',
@@ -68,7 +68,7 @@ export function AppLayout() {
                 type="button"
                 onClick={() => navigate('/recruiter/dashboard')}
                 className={[
-                  'flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
+                  'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
                   audience === 'recruiter'
                     ? 'bg-accentSecondary text-textPrimary shadow-sm'
                     : 'text-textSecondary hover:text-textPrimary',
@@ -93,7 +93,7 @@ export function AppLayout() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <main className="mx-auto flex w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="w-full rounded-[2rem] border border-border bg-surface/90 p-8 shadow-panel">
           <Outlet />
         </div>

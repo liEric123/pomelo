@@ -255,34 +255,34 @@ export function CandidateSignupPage() {
     return (
       <section className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1.05fr_0.95fr]">
         <div className="rounded-[2rem] border border-border bg-surfaceAlt p-8 shadow-panel">
-          <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+          <p className="type-kicker">
             Resume analysis complete
           </p>
-          <h2 className="mt-4 text-4xl font-semibold tracking-tight text-textPrimary">
+          <h2 className="type-display-page mt-5 max-w-2xl">
             You are ready to enter the curated role feed.
           </h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-textSecondary">
+          <p className="type-body mt-5 max-w-2xl">
             Pomelo translated your resume into a candidate profile with a fit score,
             summary, and top skills to support higher-signal matching.
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             <div className="rounded-3xl border border-border bg-surface p-5">
-              <p className="text-sm text-textSecondary">Candidate ID</p>
-              <p className="mt-2 text-lg font-semibold text-textPrimary">
+              <p className="type-meta">Candidate ID</p>
+              <p className="type-stat mt-3">
                 #{result.id}
               </p>
             </div>
             <div className="rounded-3xl border border-border bg-surface p-5">
-              <p className="text-sm text-textSecondary">Top skills</p>
-              <p className="mt-2 text-lg font-semibold text-textPrimary">
+              <p className="type-meta">Top skills</p>
+              <p className="type-stat mt-3">
                 {result.top_skills.length}
               </p>
             </div>
             <div className="rounded-3xl border border-border bg-surface p-5">
-              <p className="text-sm text-textSecondary">Assessment</p>
+              <p className="type-meta">Assessment</p>
               <div
-                className={`mt-2 inline-flex rounded-full border px-3 py-1 text-sm font-medium ${scoreTone.badge}`}
+                className={`type-badge mt-3 inline-flex rounded-full border px-3 py-1 ${scoreTone.badge}`}
               >
                 {scoreTone.label}
               </div>
@@ -321,19 +321,19 @@ export function CandidateSignupPage() {
               </svg>
               <div className="absolute inset-6 rounded-full bg-surfaceAlt" />
               <div className="absolute text-center">
-                <p className="text-xs uppercase tracking-[0.28em] text-textSecondary">
+                <p className="font-ui text-xs uppercase tracking-[0.28em] text-textSecondary">
                   Score
                 </p>
-                <p className="mt-2 text-5xl font-semibold tracking-tight text-textPrimary">
+                <p className="type-counter mt-2 text-5xl">
                   {score}
                 </p>
               </div>
             </div>
 
-            <p className="mt-6 text-sm font-medium uppercase tracking-[0.24em] text-textSecondary">
+            <p className="type-kicker mt-8">
               AI summary
             </p>
-            <p className="mt-4 text-base leading-7 text-textSecondary">
+            <p className="type-body mt-5">
               {result.summary}
             </p>
 
@@ -341,7 +341,7 @@ export function CandidateSignupPage() {
               {result.top_skills.map((skill) => (
                 <span
                   key={skill}
-                  className="rounded-full border border-border bg-surfaceAlt px-3 py-1.5 text-sm font-medium text-textPrimary"
+                  className="font-ui rounded-full border border-border bg-surfaceAlt px-3 py-1.5 text-sm font-medium text-textPrimary"
                 >
                   {skill}
                 </span>
@@ -351,7 +351,7 @@ export function CandidateSignupPage() {
             <button
               type="button"
               onClick={() => navigate('/candidate/feed')}
-              className="mt-8 inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-6 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
+              className="font-ui mt-10 inline-flex items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-6 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover"
             >
               Start Swiping
             </button>
@@ -364,13 +364,13 @@ export function CandidateSignupPage() {
   return (
     <section className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.95fr_1.05fr]">
       <div className="rounded-[2rem] border border-border bg-surfaceAlt p-8 shadow-panel">
-        <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+        <p className="type-kicker">
           Candidate signup
         </p>
-        <h2 className="mt-4 text-4xl font-semibold tracking-tight text-textPrimary">
+        <h2 className="type-display-hero mt-5 max-w-3xl">
           Upload your resume and let Pomelo build your matching profile.
         </h2>
-        <p className="mt-4 max-w-2xl text-base leading-7 text-textSecondary">
+        <p className="type-body-lg mt-5 max-w-2xl">
           Start the candidate flow by sharing your resume. We&apos;ll analyze your
           experience, create a structured summary, and prepare you for the curated
           role feed.
@@ -378,18 +378,18 @@ export function CandidateSignupPage() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           <div className="rounded-3xl border border-border bg-surface p-5">
-            <p className="text-sm text-textSecondary">Accepted files</p>
-            <p className="mt-2 text-lg font-semibold text-textPrimary">
+            <p className="type-meta">Accepted files</p>
+            <p className="type-stat mt-3">
               PDF, DOCX
             </p>
           </div>
           <div className="rounded-3xl border border-border bg-surface p-5">
-            <p className="text-sm text-textSecondary">Max file size</p>
-            <p className="mt-2 text-lg font-semibold text-textPrimary">5MB</p>
+            <p className="type-meta">Max file size</p>
+            <p className="type-stat mt-3">5MB</p>
           </div>
           <div className="rounded-3xl border border-border bg-surface p-5">
-            <p className="text-sm text-textSecondary">Outcome</p>
-            <p className="mt-2 text-lg font-semibold text-textPrimary">
+            <p className="type-meta">Outcome</p>
+            <p className="type-stat mt-3">
               Score, summary, skills
             </p>
           </div>
@@ -404,7 +404,7 @@ export function CandidateSignupPage() {
           <div className="space-y-2">
             <label
               htmlFor={`${inputId}-name`}
-              className="text-sm font-medium text-textPrimary"
+              className="type-label"
             >
               Name
             </label>
@@ -421,14 +421,14 @@ export function CandidateSignupPage() {
               placeholder="Alex Morgan"
             />
             {errors.name ? (
-              <p className="text-sm text-error">{errors.name}</p>
+              <p className="font-ui text-sm text-error">{errors.name}</p>
             ) : null}
           </div>
 
           <div className="space-y-2">
             <label
               htmlFor={`${inputId}-email`}
-              className="text-sm font-medium text-textPrimary"
+              className="type-label"
             >
               Email
             </label>
@@ -445,17 +445,17 @@ export function CandidateSignupPage() {
               placeholder="alex@pomelo.dev"
             />
             {errors.email ? (
-              <p className="text-sm text-error">{errors.email}</p>
+              <p className="font-ui text-sm text-error">{errors.email}</p>
             ) : null}
           </div>
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <label className="text-sm font-medium text-textPrimary" htmlFor={inputId}>
+              <label className="type-label" htmlFor={inputId}>
                 Resume upload
               </label>
               {resumeFile ? (
-                <span className="text-sm text-textSecondary">{resumeFile.name}</span>
+                <span className="type-meta">{resumeFile.name}</span>
               ) : null}
             </div>
 
@@ -486,14 +486,14 @@ export function CandidateSignupPage() {
                   <path d="M5 18.5h14" strokeLinecap="round" />
                 </svg>
               </div>
-              <p className="mt-4 text-lg font-semibold text-textPrimary">
+              <p className="font-display mt-5 text-[1.7rem] font-semibold tracking-[-0.01em] text-textPrimary">
                 Drag and drop your resume here
               </p>
-              <p className="mt-2 max-w-sm text-sm leading-6 text-textSecondary">
+              <p className="font-ui mt-3 max-w-sm text-sm leading-6 text-textSecondary">
                 Upload a PDF or DOCX file up to 5MB, or click this area to browse
                 from your device.
               </p>
-              <span className="mt-5 inline-flex rounded-full border border-navButton bg-navButton px-4 py-2 text-sm font-medium text-navButtonText">
+              <span className="font-ui mt-6 inline-flex rounded-full border border-navButton bg-navButton px-4 py-2 text-sm font-medium text-navButtonText">
                 Choose file
               </span>
             </label>
@@ -509,16 +509,16 @@ export function CandidateSignupPage() {
             />
 
             {errors.file ? (
-              <p className="text-sm text-error">{errors.file}</p>
+              <p className="font-ui text-sm text-error">{errors.file}</p>
             ) : (
-              <p className="text-sm text-textSecondary">
+              <p className="type-meta">
                 Accepted formats: PDF or DOCX. Maximum size: 5MB.
               </p>
             )}
           </div>
 
           {errors.form ? (
-            <div className="rounded-2xl border border-error/25 bg-error/10 px-4 py-3 text-sm text-textPrimary">
+            <div className="font-ui rounded-2xl border border-error/25 bg-error/10 px-4 py-3 text-sm text-textPrimary">
               {errors.form}
             </div>
           ) : null}
@@ -526,7 +526,7 @@ export function CandidateSignupPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="inline-flex w-full items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover disabled:cursor-not-allowed disabled:opacity-70"
+            className="font-ui inline-flex w-full items-center justify-center rounded-full border border-navButtonActive bg-navButtonActive px-5 py-3 text-sm font-semibold text-navButtonText transition hover:border-navButtonHover hover:bg-navButtonHover disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? 'Analyzing your resume...' : 'Create profile'}
           </button>

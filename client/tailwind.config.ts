@@ -25,6 +25,10 @@ export default {
         error: '#D9776A',
         info: '#A7C7E7',
       },
+      fontFamily: {
+        display: ['"Fraunces"', 'Georgia', 'serif'],
+        ui: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
       boxShadow: {
         glass: '0 24px 60px rgba(139, 111, 99, 0.12)',
         panel: '0 18px 45px rgba(122, 108, 101, 0.12)',
