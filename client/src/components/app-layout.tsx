@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import logo from '../assets/logo.png'
 import { useAuth } from '../contexts/auth-context'
 
 const candidateLinks = [
@@ -26,18 +27,11 @@ export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { session, isAuthenticated, isCandidate, logout } = useAuth()
-  const [isHeaderVisible, setIsHeaderVisible] = useState(false)
   const audience = location.pathname.startsWith('/recruiter')
     ? 'recruiter'
     : 'candidate'
   const hideTopBar = location.pathname.startsWith('/candidate/interview/')
   const showNavigation = !(audience === 'candidate' && !isAuthenticated)
-  const headerClasses = [
-    'pointer-events-auto fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/82 backdrop-blur-xl transition-all duration-500 ease-out',
-    isHeaderVisible
-      ? 'translate-y-0 opacity-100'
-      : '-translate-y-[calc(100%-0.9rem)] opacity-0',
-  ].join(' ')
 
   const links = useMemo(
     () =>
@@ -50,12 +44,19 @@ export function AppLayout() {
   )
 
   const shellPaddingClasses = hideTopBar ? 'p-4 sm:p-5' : 'p-8'
-  const mainPaddingClasses = hideTopBar ? 'py-4' : 'py-12'
+  const mainPaddingClasses = showNavigation
+    ? hideTopBar
+      ? 'pb-4 pt-28 sm:pt-32'
+      : 'pb-12 pt-28 sm:pt-32'
+    : hideTopBar
+      ? 'py-4'
+      : 'py-12'
 
   const headerContent = (
     <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
       <nav className="flex flex-wrap items-center gap-x-2 gap-y-3 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
         <div className="mr-3 flex shrink-0 items-center px-1">
+          <img src={logo} alt="" className="mr-3 h-8 w-8 object-contain sm:h-9 sm:w-9" />
           <p className="text-xl uppercase tracking-[0.32em] text-textSecondary sm:text-2xl">
             Pomelo
           </p>
@@ -98,13 +99,8 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-pomelo-wash text-textPrimary">
       {showNavigation ? (
-        <div
-          className="fixed inset-x-0 top-0 z-30"
-          onMouseEnter={() => setIsHeaderVisible(true)}
-          onMouseLeave={() => setIsHeaderVisible(false)}
-        >
-          <div className="absolute inset-x-0 top-0 h-10" />
-          <header className={headerClasses}>
+        <div className="fixed inset-x-0 top-0 z-30">
+          <header className="pointer-events-auto fixed inset-x-0 top-0 z-30 border-b border-border/70 bg-background/82 backdrop-blur-xl">
             {headerContent}
           </header>
         </div>
