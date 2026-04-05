@@ -22,6 +22,8 @@ type InterviewPhase =
 
 type PromptKind = 'question' | 'follow_up'
 
+type MicStatus = 'pending' | 'ready' | 'denied' | 'unavailable'
+
 type InterviewPrompt = {
   id: string
   text: string
@@ -136,6 +138,8 @@ export function CandidateInterviewPage() {
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
   const [notesDraft, setNotesDraft] = useState('')
+  const [micStatus, setMicStatus] = useState<MicStatus>('pending')
+  const [liveTranscript, setLiveTranscript] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const socketRef = useRef<WebSocket | null>(null)
@@ -148,6 +152,10 @@ export function CandidateInterviewPage() {
   const currentPromptRef = useRef<InterviewPrompt | null>(null)
   const phaseRef = useRef<InterviewPhase>('waiting')
   const pendingAnswerRef = useRef<Record<string, unknown> | null>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const finalTranscriptRef = useRef('')
+  const liveTranscriptRef = useRef('')
+  const isRecognizingRef = useRef(false)
 
   const questionCounterText = useMemo(
     () => `Q${questionCount}/${questionTotal}`,
@@ -176,6 +184,9 @@ export function CandidateInterviewPage() {
   function activatePrompt(nextPrompt: InterviewPrompt) {
     setCurrentPrompt(nextPrompt)
     setNotesDraft('')
+    setLiveTranscript('')
+    finalTranscriptRef.current = ''
+    liveTranscriptRef.current = ''
     setQuestionCount(nextPrompt.index + 1)
     setQuestionTotal((currentTotal) =>
       Math.max(currentTotal, nextPrompt.index + 1, DEFAULT_TOTAL_QUESTIONS),
@@ -213,6 +224,12 @@ export function CandidateInterviewPage() {
     elapsedSecondsRef.current = responseStartedAtRef.current
       ? Math.max(1, Math.round((Date.now() - responseStartedAtRef.current) / 1000))
       : 0
+
+    // Pre-populate the notes area with the live speech transcript
+    const transcript = liveTranscriptRef.current.trim()
+    if (transcript) {
+      setNotesDraft(transcript)
+    }
 
     setPhase('notes')
     setSecondsRemaining(NOTES_DURATION_SECONDS)
@@ -403,6 +420,97 @@ export function CandidateInterviewPage() {
     }
   }, [])
 
+  // Request mic permission and set up SpeechRecognition once on mount
+  useEffect(() => {
+    const SpeechRecognitionImpl =
+      (typeof window !== 'undefined' && (window.SpeechRecognition ?? window.webkitSpeechRecognition)) ||
+      null
+
+    if (!SpeechRecognitionImpl) {
+      setMicStatus('unavailable')
+      return
+    }
+
+    let disposed = false
+
+    navigator.mediaDevices
+      ?.getUserMedia({ audio: true })
+      .then((stream) => {
+        // We only needed this to prompt for permission — SR handles its own capture
+        stream.getTracks().forEach((t) => t.stop())
+
+        if (disposed) return
+        setMicStatus('ready')
+
+        const recognition = new SpeechRecognitionImpl()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = 'en-US'
+        recognitionRef.current = recognition
+      })
+      .catch(() => {
+        if (!disposed) setMicStatus('denied')
+      })
+
+    return () => {
+      disposed = true
+      isRecognizingRef.current = false
+      try { recognitionRef.current?.stop() } catch { /* ignore */ }
+      recognitionRef.current = null
+    }
+  }, [])
+
+  // Start / stop speech recognition based on recording phase
+  useEffect(() => {
+    const recognition = recognitionRef.current
+    if (!recognition || micStatus !== 'ready') return
+
+    if (phase === 'recording') {
+      finalTranscriptRef.current = ''
+      liveTranscriptRef.current = ''
+      setLiveTranscript('')
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let newFinal = ''
+        let interim = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            newFinal += event.results[i][0].transcript
+          } else {
+            interim += event.results[i][0].transcript
+          }
+        }
+        finalTranscriptRef.current += newFinal
+        liveTranscriptRef.current = finalTranscriptRef.current + interim
+        setLiveTranscript(liveTranscriptRef.current)
+      }
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        // no-speech is expected during pauses; don't treat it as a hard failure
+        if (event.error === 'no-speech') return
+        isRecognizingRef.current = false
+      }
+
+      recognition.onend = () => {
+        // Restart if we're still in recording phase (SR can stop silently on some browsers)
+        if (phaseRef.current === 'recording' && isRecognizingRef.current) {
+          try { recognition.start() } catch { /* already started */ }
+        } else {
+          isRecognizingRef.current = false
+        }
+      }
+
+      try {
+        recognition.start()
+        isRecognizingRef.current = true
+      } catch { /* already started */ }
+    } else {
+      // Stop recognition for any non-recording phase
+      isRecognizingRef.current = false
+      try { recognition.stop() } catch { /* ignore */ }
+    }
+  }, [phase, micStatus])
+
   useEffect(() => {
     if (videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current
@@ -501,6 +609,19 @@ export function CandidateInterviewPage() {
 
   const footerMessage = getFooterMessage(phase, Boolean(queuedPrompt))
 
+  const micLabel =
+    micStatus === 'ready' && phase === 'recording'
+      ? 'Listening'
+      : micStatus === 'ready'
+        ? 'Mic ready'
+        : micStatus === 'denied'
+          ? 'Mic denied'
+          : micStatus === 'unavailable'
+            ? 'Transcript unavailable'
+            : 'Mic pending'
+
+  const hasTranscriptInNotes = phase === 'notes' && notesDraft.trim().length > 0
+
   return (
     <section className="mx-auto flex h-[calc(100svh-2rem)] min-h-0 max-w-7xl">
       <canvas ref={canvasRef} className="hidden" />
@@ -564,6 +685,27 @@ export function CandidateInterviewPage() {
                 </div>
               </div>
 
+              {/* Live transcript during recording */}
+              {phase === 'recording' && micStatus === 'ready' ? (
+                <div className="border-t border-border/80 pt-5">
+                  <div className="rounded-[1.45rem] border border-success/25 bg-success/6 px-5 py-4">
+                    <div className="flex items-center gap-2.5">
+                      <span className="relative flex h-2.5 w-2.5 shrink-0">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
+                      </span>
+                      <p className="font-ui text-sm font-semibold text-success">Listening</p>
+                    </div>
+                    <p className="font-ui mt-3 min-h-[3rem] text-sm leading-6 text-textPrimary">
+                      {liveTranscript.trim()
+                        ? liveTranscript
+                        : <span className="italic text-textSecondary">Pomelo is transcribing your spoken response live. Start speaking...</span>
+                      }
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-auto border-t border-border/80 pt-5">
                 {resolvedWebsocketError ? (
                   <div className="font-ui rounded-[1.3rem] border border-error/20 bg-error/10 px-5 py-4 text-center text-sm leading-6 text-textPrimary">
@@ -582,13 +724,11 @@ export function CandidateInterviewPage() {
                       </button>
                     ) : null}
                   </div>
-                ) : phase !== 'waiting' && phase !== 'notes' ? (
+                ) : phase !== 'waiting' && phase !== 'notes' && phase !== 'recording' ? (
                   <div className="rounded-[1.45rem] border border-border/80 bg-surfaceAlt px-5 py-4">
                     <p className="font-ui text-[1rem] italic leading-7 text-textSecondary">
                       {phase === 'thinking' &&
                         'Get ready to start recording your answer in a moment...'}
-                      {phase === 'recording' &&
-                        'Your video response is live. End the recording whenever you are done speaking.'}
                       {phase === 'break' &&
                         'Pause, reset, and let the next question arrive naturally.'}
                       {phase === 'completed' &&
@@ -604,11 +744,12 @@ export function CandidateInterviewPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-ui text-sm font-semibold text-textPrimary">
-                          Post-answer notes
+                          {hasTranscriptInNotes ? 'Spoken response' : 'Post-answer notes'}
                         </p>
                         <p className="font-ui mt-1 text-sm leading-6 text-textSecondary">
-                          Jot down key examples, metrics, or context from your answer. This helps
-                          the AI grade accurately and gives the recruiter more signal.
+                          {hasTranscriptInNotes
+                            ? 'Pomelo transcribed your spoken response. Edit or add to it before submitting.'
+                            : 'Jot down key examples, metrics, or context from your answer. This helps the AI grade accurately and gives the recruiter more signal.'}
                         </p>
                       </div>
                       <span className="font-ui shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs text-textSecondary">
@@ -621,7 +762,11 @@ export function CandidateInterviewPage() {
                       autoFocus
                       value={notesDraft}
                       onChange={(event) => setNotesDraft(event.target.value)}
-                      placeholder="e.g. Led migration of 3 services to Kubernetes — reduced deploy time by 40%. Talked about the rollback strategy and tradeoffs..."
+                      placeholder={
+                        hasTranscriptInNotes
+                          ? ''
+                          : 'e.g. Led migration of 3 services to Kubernetes — reduced deploy time by 40%. Talked about the rollback strategy and tradeoffs...'
+                      }
                       className="font-ui mt-4 min-h-[140px] w-full rounded-[1.35rem] border border-border bg-surface px-4 py-3 text-sm leading-6 text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20"
                     />
 
@@ -697,6 +842,27 @@ export function CandidateInterviewPage() {
                   )}
                 </div>
 
+                {/* Mic status indicator */}
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  {micStatus === 'ready' && phase === 'recording' ? (
+                    <span className="relative flex h-2 w-2 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+                    </span>
+                  ) : (
+                    <span
+                      className={`inline-flex h-2 w-2 rounded-full ${
+                        micStatus === 'ready'
+                          ? 'bg-success/50'
+                          : micStatus === 'denied' || micStatus === 'unavailable'
+                            ? 'bg-error/50'
+                            : 'bg-textSecondary/30'
+                      }`}
+                    />
+                  )}
+                  <p className="font-ui text-xs text-textSecondary">{micLabel}</p>
+                </div>
+
                 <button
                   type="button"
                   onClick={
@@ -711,8 +877,13 @@ export function CandidateInterviewPage() {
 
               <div className="rounded-[1rem] border border-border bg-surface px-4 py-3 shadow-[0_12px_24px_rgba(139,111,99,0.08)]">
                 <p className="font-ui text-sm leading-6 text-textSecondary">
-                  Answer on video, then add notes after recording stops. Keep this page open until
-                  the interview is fully complete.
+                  {micStatus === 'ready'
+                    ? 'Speak your answer — Pomelo will transcribe it live. You can edit the transcript before submitting.'
+                    : micStatus === 'denied'
+                      ? 'Microphone access was denied. Type your notes manually after recording.'
+                      : micStatus === 'unavailable'
+                        ? 'Live transcription is not supported in this browser. Type your notes manually.'
+                        : 'Answer on video, then add notes after recording stops. Keep this page open until the interview is fully complete.'}
                 </p>
               </div>
 
