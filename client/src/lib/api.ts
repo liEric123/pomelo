@@ -1,3 +1,5 @@
+import { loadSession } from './auth'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 type JsonBody = Record<string, unknown> | unknown[]
@@ -12,6 +14,12 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const { body, headers, ...init } = options
   const requestHeaders = new Headers(headers)
+
+  // Auto-attach bearer token from session if present and not already set
+  const session = loadSession()
+  if (session?.access_token && !requestHeaders.has('Authorization')) {
+    requestHeaders.set('Authorization', `Bearer ${session.access_token}`)
+  }
 
   let resolvedBody: BodyInit | undefined
 

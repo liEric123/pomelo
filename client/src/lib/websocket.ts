@@ -1,8 +1,10 @@
+import { loadSession } from './auth'
 import { API_BASE_URL } from './api'
 
 export type InterviewMessage = Record<string, unknown>
 
 type ConnectInterviewOptions = {
+  token?: string         // explicit override; falls back to session token
   onMessage?: (message: InterviewMessage) => void
   onError?: (event: Event) => void
   onClose?: (event: CloseEvent) => void
@@ -10,9 +12,13 @@ type ConnectInterviewOptions = {
 
 const MAX_RETRIES = 3
 
-function toWebSocketUrl(path: string) {
-  const url = new URL(path, API_BASE_URL)
+function buildInterviewUrl(matchId: string, token: string | null | undefined): string {
+  const base = API_BASE_URL || window.location.origin
+  const url = new URL(`/api/interviews/${matchId}/ws`, base)
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (token) {
+    url.searchParams.set('token', token)
+  }
   return url.toString()
 }
 
@@ -20,14 +26,15 @@ export function connectInterview(
   matchId: string,
   options: ConnectInterviewOptions = {},
 ): WebSocket {
+  const session = loadSession()
+  const token = options.token ?? session?.access_token
+
   let retries = 0
   let manuallyClosed = false
   let socket = createSocket()
 
   function createSocket() {
-    const nextSocket = new WebSocket(
-      toWebSocketUrl(`/api/interview/${matchId}`),
-    )
+    const nextSocket = new WebSocket(buildInterviewUrl(matchId, token))
 
     nextSocket.addEventListener('message', (event) => {
       try {

@@ -2,7 +2,7 @@ import type { ChangeEvent, DragEvent, FormEvent } from 'react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
-import { setStoredCandidateId } from '../lib/candidate-session'
+import { useAuth } from '../contexts/auth-context'
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 const ACCEPTED_FILE_TYPES = new Set([
@@ -10,11 +10,12 @@ const ACCEPTED_FILE_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ])
 const ACCEPTED_EXTENSIONS = ['.pdf', '.docx']
-const SIGNUP_ENDPOINTS = ['/api/candidate/register', '/api/candidates/register']
+const SIGNUP_ENDPOINT = '/api/candidates/register'
 
 type SignupErrors = {
   name?: string
   email?: string
+  password?: string
   file?: string
   form?: string
 }
@@ -118,32 +119,20 @@ function getSignupErrorMessage(error: unknown) {
 }
 
 async function submitCandidateSignup(formData: FormData) {
-  let lastError: unknown
-
-  for (const endpoint of SIGNUP_ENDPOINTS) {
-    try {
-      return await apiFetch<CandidateSignupResponse>(endpoint, {
-        method: 'POST',
-        body: formData,
-      })
-    } catch (error) {
-      lastError = error
-
-      if (!(error instanceof Error) || !error.message.includes('status 404')) {
-        throw error
-      }
-    }
-  }
-
-  throw lastError
+  return apiFetch<CandidateSignupResponse>(SIGNUP_ENDPOINT, {
+    method: 'POST',
+    body: formData,
+  })
 }
 
 export function CandidateSignupPage() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const inputId = useId()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [errors, setErrors] = useState<SignupErrors>({})
   const [isDragging, setIsDragging] = useState(false)
@@ -235,13 +224,25 @@ export function CandidateSignupPage() {
     const formData = new FormData()
     formData.append('name', name.trim())
     formData.append('email', email.trim())
-    formData.append('file', resumeFile)
     formData.append('resume', resumeFile)
+    if (password) {
+      formData.append('password', password)
+    }
 
     try {
       const response = await submitCandidateSignup(formData)
-      setStoredCandidateId(response.id)
-      setResult(response)
+      // Auto-login: backend always creates an AuthUser (password or default)
+      try {
+        const loginPassword = password || 'pomelo2026'
+        await login(email.trim(), loginPassword)
+        setResult(response)
+        // Redirect immediately — no need to show success panel
+        navigate('/candidate/feed', { replace: true })
+        return
+      } catch {
+        // Login failed (shouldn't happen, but don't break signup UX)
+        setResult(response)
+      }
     } catch (error) {
       setErrors({
         form: getSignupErrorMessage(error),
@@ -446,6 +447,35 @@ export function CandidateSignupPage() {
             />
             {errors.email ? (
               <p className="font-ui text-sm text-error">{errors.email}</p>
+            ) : null}
+          </div>
+
+          <div className="space-y-2">
+            <label
+              htmlFor={`${inputId}-password`}
+              className="type-label"
+            >
+              Password{' '}
+              <span className="font-normal text-textSecondary">(optional)</span>
+            </label>
+            <input
+              id={`${inputId}-password`}
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value)
+                setErrors((current) => ({ ...current, password: undefined, form: undefined }))
+              }}
+              disabled={isSubmitting}
+              className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-base text-textPrimary outline-none transition placeholder:text-textSecondary/75 focus:border-accentPrimary focus:ring-2 focus:ring-accentPrimary/20 disabled:cursor-not-allowed disabled:opacity-70"
+              placeholder="Set a password to sign in later"
+            />
+            <p className="font-ui text-xs text-textSecondary">
+              Leave blank to use the demo default (pomelo2026)
+            </p>
+            {errors.password ? (
+              <p className="font-ui text-sm text-error">{errors.password}</p>
             ) : null}
           </div>
 

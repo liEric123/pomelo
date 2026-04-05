@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../contexts/auth-context'
+import { API_BASE_URL } from '../lib/api'
 
 const THINKING_DURATION_SECONDS = 20
 const RECORDING_DURATION_SECONDS = 120
@@ -96,16 +98,20 @@ function toPrompt(message: InterviewQuestionMessage | InterviewFollowUpMessage):
   }
 }
 
-function getInterviewSocketUrls(matchId: string) {
-  return [
-    `ws://localhost:8000/ws/interview/${matchId}`,
-    `ws://localhost:8000/api/interviews/${matchId}/ws`,
-  ]
+function buildInterviewSocketUrl(matchId: string, token: string | null | undefined) {
+  const base = API_BASE_URL || window.location.origin
+  const url = new URL(`/api/interviews/${matchId}/ws`, base)
+  url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+  if (token) {
+    url.searchParams.set('token', token)
+  }
+  return url.toString()
 }
 
 export function CandidateInterviewPage() {
   const { matchId = '' } = useParams()
   const navigate = useNavigate()
+  const { session } = useAuth()
   const hasMatchId = Boolean(matchId)
   const [phase, setPhase] = useState<InterviewPhase>('waiting')
   const [secondsRemaining, setSecondsRemaining] = useState(THINKING_DURATION_SECONDS)
@@ -122,7 +128,6 @@ export function CandidateInterviewPage() {
   const socketRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const responseStartedAtRef = useRef<number | null>(null)
-  const socketPathIndexRef = useRef(0)
   const reconnectCountRef = useRef(0)
   const manuallyClosedRef = useRef(false)
   const currentPromptRef = useRef<InterviewPrompt | null>(null)
@@ -196,14 +201,12 @@ export function CandidateInterviewPage() {
     }
 
     manuallyClosedRef.current = false
-    socketPathIndexRef.current = 0
     reconnectCountRef.current = 0
     let cancelled = false
+    const token = session?.access_token ?? null
 
     function openSocket() {
-      const urls = getInterviewSocketUrls(matchId)
-      const url = urls[Math.min(socketPathIndexRef.current, urls.length - 1)]
-      const socket = new WebSocket(url)
+      const socket = new WebSocket(buildInterviewSocketUrl(matchId, token))
       socketRef.current = socket
 
       socket.addEventListener('open', () => {
@@ -255,12 +258,6 @@ export function CandidateInterviewPage() {
           return
         }
 
-        if (socketPathIndexRef.current < getInterviewSocketUrls(matchId).length - 1) {
-          socketPathIndexRef.current += 1
-          openSocket()
-          return
-        }
-
         if (reconnectCountRef.current >= 2) {
           setWebsocketError('The interview connection could not be restored.')
           return
@@ -283,7 +280,7 @@ export function CandidateInterviewPage() {
       socketRef.current?.close()
       socketRef.current = null
     }
-  }, [hasMatchId, matchId])
+  }, [hasMatchId, matchId, session])
 
   useEffect(() => {
     let disposed = false

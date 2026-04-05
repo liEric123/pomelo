@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/auth-context'
 
 const candidateLinks = [
   { to: '/candidate/signup', label: 'Signup' },
@@ -25,6 +26,7 @@ function getNavClasses(isActive: boolean) {
 export function AppLayout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { session, isAuthenticated, logout } = useAuth()
   const [isHeaderVisible, setIsHeaderVisible] = useState(false)
   const audience = location.pathname.startsWith('/recruiter')
     ? 'recruiter'
@@ -88,7 +90,7 @@ export function AppLayout() {
         </div>
       </div>
 
-      <nav className="flex flex-wrap gap-2 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
+      <nav className="flex flex-wrap items-center gap-2 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -98,6 +100,27 @@ export function AppLayout() {
             {link.label}
           </NavLink>
         ))}
+
+        {isAuthenticated && session ? (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="font-ui rounded-full border border-border bg-surfaceAlt px-3 py-1.5 text-xs text-textSecondary">
+              {session.email?.split('@')[0] ?? session.role}
+              <span className="ml-1.5 font-medium text-textPrimary capitalize">
+                · {session.role}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                logout()
+                navigate('/login', { replace: true })
+              }}
+              className="font-ui rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-textSecondary transition hover:border-error/40 hover:bg-error/10 hover:text-error"
+            >
+              Sign out
+            </button>
+          </div>
+        ) : null}
       </nav>
     </div>
   )

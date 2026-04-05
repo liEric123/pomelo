@@ -7,7 +7,7 @@ import type {
 import TinderCard from '../components/tinder-card'
 import { Link } from 'react-router-dom'
 import { apiFetch } from '../lib/api'
-import { getStoredCandidateId } from '../lib/candidate-session'
+import { useAuth } from '../contexts/auth-context'
 
 const DAILY_SWIPE_LIMIT = 5
 
@@ -58,42 +58,19 @@ function getCompanyLabel(role: FeedRole) {
 }
 
 async function fetchCandidateFeed(candidateId: number) {
-  try {
-    return await apiFetch<FeedRole[]>(
-      `/api/candidate/feed?candidate_id=${candidateId}`,
-    )
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('status 404')) {
-      return apiFetch<FeedRole[]>(`/api/candidates/${candidateId}/feed`)
-    }
-
-    throw error
-  }
+  return apiFetch<FeedRole[]>(`/api/candidates/${candidateId}/feed`)
 }
 
 async function postSwipe(candidateId: number, roleId: number, intent: SwipeIntent) {
-  const payload = {
-    candidate_id: candidateId,
-    role_id: roleId,
-    direction: intent,
-    side: 'candidate' as const,
-  }
-
-  try {
-    return await apiFetch<SwipeResponse>('/api/swipe', {
-      method: 'POST',
-      body: payload,
-    })
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('status 404')) {
-      return apiFetch<SwipeResponse>('/api/swipes', {
-        method: 'POST',
-        body: payload,
-      })
-    }
-
-    throw error
-  }
+  return apiFetch<SwipeResponse>('/api/swipes', {
+    method: 'POST',
+    body: {
+      candidate_id: candidateId,
+      role_id: roleId,
+      direction: intent,
+      side: 'candidate' as const,
+    },
+  })
 }
 
 function getFeedErrorMessage(error: unknown) {
@@ -110,7 +87,8 @@ function getFeedErrorMessage(error: unknown) {
 }
 
 export function CandidateFeedPage() {
-  const candidateId = useMemo(() => getStoredCandidateId(), [])
+  const { session } = useAuth()
+  const candidateId = useMemo(() => session?.candidate_id ?? null, [session])
   const [roles, setRoles] = useState<FeedRole[]>([])
   const [activeIndex, setActiveIndex] = useState(-1)
   const [expandedRoleId, setExpandedRoleId] = useState<number | null>(null)
