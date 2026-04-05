@@ -431,9 +431,6 @@ export function CandidateInterviewPage() {
     }
   }, [])
 
-  const thinkingProgress =
-    ((THINKING_DURATION_SECONDS - secondsRemaining) / THINKING_DURATION_SECONDS) * 100
-  const ringDegrees = Math.max(0, Math.min(360, (thinkingProgress / 100) * 360))
   const footerMessage = getFooterMessage(phase, Boolean(queuedPrompt))
   const canEditResponse =
     phase === 'thinking' || phase === 'recording' || phase === 'waiting'
@@ -456,7 +453,7 @@ export function CandidateInterviewPage() {
               </div>
 
               <div className="max-w-4xl pt-1">
-                <h2 className="font-display text-[1.8rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[2.35rem]">
+                <h2 className="font-display text-[1.55rem] font-semibold leading-[1.22] tracking-[-0.01em] text-textPrimary sm:text-[2rem]">
                   {currentPrompt?.text ??
                     'Connecting to your interview session and preparing the first question.'}
                 </h2>
@@ -484,26 +481,6 @@ export function CandidateInterviewPage() {
                       {phase === 'completed' ? 'Done' : formatClock(secondsRemaining)}
                     </span>
                   </p>
-
-                  <div
-                    className="mt-5 flex h-28 w-28 items-center justify-center rounded-full shadow-[0_14px_30px_rgba(245,140,124,0.16)] sm:h-32 sm:w-32"
-                    style={{
-                      background:
-                        phase === 'thinking'
-                          ? `conic-gradient(#f97316 ${ringDegrees}deg, rgba(249,115,22,0.18) ${ringDegrees}deg 360deg)`
-                          : phase === 'break'
-                            ? 'conic-gradient(#f0b56a 360deg, rgba(240,181,106,0.18) 0deg)'
-                            : phase === 'recording'
-                              ? 'conic-gradient(#7fa37a 360deg, rgba(127,163,122,0.18) 0deg)'
-                              : 'conic-gradient(#f6b7a9 360deg, rgba(246,183,169,0.18) 0deg)',
-                    }}
-                  >
-                    <div className="flex h-[84%] w-[84%] items-center justify-center rounded-full border border-white/70 bg-[#f97316] text-center shadow-inner">
-                      <span className="font-ui text-3xl font-bold text-white sm:text-[2.6rem]">
-                        {phase === 'completed' ? '0' : secondsRemaining}
-                      </span>
-                    </div>
-                  </div>
 
                   <p className="font-ui mt-4 text-[0.98rem] italic leading-7 text-textSecondary sm:text-[1.02rem]">
                     {phase === 'thinking' && 'Prepare your response...'}
