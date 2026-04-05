@@ -293,13 +293,13 @@ export function RecruiterRolesPage() {
     <section className="space-y-8">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
         <div className="rounded-[2rem] border border-border bg-surfaceAlt p-8 shadow-panel">
-          <p className="text-sm font-medium uppercase tracking-[0.32em] text-textSecondary">
+          <p className="type-kicker">
             Recruiter roles
           </p>
-          <h2 className="mt-4 text-4xl font-semibold tracking-tight text-textPrimary">
+          <h2 className="type-display-hero mt-5 max-w-3xl">
             Configure role criteria, hidden keywords, and interview questions.
           </h2>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-textSecondary">
+          <p className="type-body mt-5 max-w-2xl">
             This workspace is tuned to the existing recruiter API: role cards load
             by <code>company_id</code>, creation posts to the live
             <code> /api/recruiter/roles</code> contract, and the question set stays
@@ -308,20 +308,20 @@ export function RecruiterRolesPage() {
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             <div className="rounded-3xl border border-border bg-surface p-5">
-              <p className="text-sm text-textSecondary">Active company</p>
-              <p className="mt-2 text-lg font-semibold text-textPrimary">
+              <p className="type-meta">Active company</p>
+              <p className="type-stat mt-3">
                 {loadedCompanyId ? `#${loadedCompanyId}` : 'Not loaded'}
               </p>
             </div>
             <div className="rounded-3xl border border-border bg-surface p-5">
-              <p className="text-sm text-textSecondary">Visible roles</p>
-              <p className="mt-2 text-lg font-semibold text-textPrimary">
+              <p className="type-meta">Visible roles</p>
+              <p className="type-stat mt-3">
                 {roles.length}
               </p>
             </div>
             <div className="rounded-3xl border border-border bg-surface p-5">
-              <p className="text-sm text-textSecondary">Question minimum</p>
-              <p className="mt-2 text-lg font-semibold text-textPrimary">6 required</p>
+              <p className="type-meta">Question minimum</p>
+              <p className="type-stat mt-3">6 required</p>
             </div>
           </div>
         </div>
