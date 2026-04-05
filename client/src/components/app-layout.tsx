@@ -47,43 +47,14 @@ export function AppLayout() {
   const mainPaddingClasses = hideTopBar ? 'py-4' : 'py-12'
 
   const headerContent = (
-    <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 px-4 py-4 shadow-glass sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center">
+    <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <nav className="flex flex-wrap items-center gap-x-2 gap-y-3 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
+        <div className="mr-3 flex shrink-0 items-center px-1">
           <p className="text-xl uppercase tracking-[0.32em] text-textSecondary sm:text-2xl">
             Pomelo
           </p>
         </div>
 
-        <div className="inline-flex w-full rounded-full border border-border bg-surfaceAlt p-1 shadow-sm sm:w-auto">
-          <button
-            type="button"
-            onClick={() => navigate('/candidate/signup')}
-            className={[
-              'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
-              audience === 'candidate'
-                ? 'bg-accentPrimary text-navButtonText shadow-sm'
-                : 'text-textSecondary hover:text-textPrimary',
-            ].join(' ')}
-          >
-            Candidate
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/recruiter/dashboard')}
-            className={[
-              'font-ui flex-1 rounded-full px-4 py-2 text-sm font-medium transition sm:flex-none',
-              audience === 'recruiter'
-                ? 'bg-accentSecondary text-textPrimary shadow-sm'
-                : 'text-textSecondary hover:text-textPrimary',
-            ].join(' ')}
-          >
-            Recruiter
-          </button>
-        </div>
-      </div>
-
-      <nav className="flex flex-wrap items-center gap-2 rounded-3xl border border-border bg-surface/80 p-3 shadow-panel">
         {links.map((link) => (
           <NavLink
             key={link.to}
@@ -95,7 +66,7 @@ export function AppLayout() {
         ))}
 
         {isAuthenticated && session ? (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             <span className="font-ui rounded-full border border-border bg-surfaceAlt px-3 py-1.5 text-xs text-textSecondary">
               {session.email?.split('@')[0] ?? session.role}
               <span className="ml-1.5 font-medium text-textPrimary capitalize">
