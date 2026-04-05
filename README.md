@@ -20,7 +20,7 @@ Pomelo helps fix that with signal compression across the funnel, turning noisy c
 - A React + TypeScript + Vite frontend
 - A FastAPI backend with service-based architecture
 - Resume upload and AI scoring
-- A swipe-based candidate feed
+- A mutual-intent swipe feed with limited swipes to reduce spam
 - Live interview flow over WebSocket with voice support TTS transcription
 - Recruiter live dashboard over SSE
 - Recruiter question injection during interviews
@@ -53,7 +53,7 @@ This project shows work across:
 
 ## Real-World Impact
 
-The goal of Pomelo is simple: help candidates spend less time applying blindly, help recruiters spend less time sorting weak-fit applications, and make hiring decisions feel more consistent, evidence-backed, and human. The product is AI-native in how it processes resumes, interviews, and comparisons, but it stays human-in-the-loop where it matters most: final judgment.
+The goal of Pomelo is simple: help candidates spend less time applying blindly, help recruiters spend less time sorting weak-fit applications, and make hiring decisions feel more consistent, evidence-backed, and human. The product is AI-native in how it processes resumes, interviews, and comparisons, but it stays human-in-the-loop where it matters most: final judgment. Role-aware, standardized interviews also help reduce the inconsistency and bias that creep into unstructured hiring processes.
 
 ## Product Flow
 
